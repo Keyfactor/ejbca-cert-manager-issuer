@@ -1,0 +1,27 @@
+# permissions for end users to view issuers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: issuer-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: ejbca-issuer
+    app.kubernetes.io/part-of: ejbca-issuer
+    app.kubernetes.io/managed-by: kustomize
+  name: issuer-viewer-role
+rules:
+- apiGroups:
+  - ejbca-issuer.keyfactor.com
+  resources:
+  - issuers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ejbca-issuer.keyfactor.com
+  resources:
+  - issuers/status
+  verbs:
+  - get

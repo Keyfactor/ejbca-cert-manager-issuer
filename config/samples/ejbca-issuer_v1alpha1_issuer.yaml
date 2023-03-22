@@ -1,0 +1,12 @@
+apiVersion: ejbca-issuer.keyfactor.com/v1alpha1
+kind: Issuer
+metadata:
+  labels:
+    app.kubernetes.io/name: issuer
+    app.kubernetes.io/instance: issuer-sample
+    app.kubernetes.io/part-of: ejbca-issuer
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: ejbca-issuer
+  name: issuer-sample
+spec:
+  # TODO(user): Add fields here
