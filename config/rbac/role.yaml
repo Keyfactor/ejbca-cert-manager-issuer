@@ -33,25 +33,23 @@ rules:
   - ejbca-issuer.keyfactor.com
   resources:
   - clusterissuers
+  - issuers
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - ejbca-issuer.keyfactor.com
   resources:
-  - clusterissuers/finalizers
+  - clusterissuers/status
+  - issuers/status
   verbs:
+  - get
+  - patch
   - update
 - apiGroups:
   - ejbca-issuer.keyfactor.com
   resources:
-  - clusterissuers/status
+  - issuers/finalizers
   verbs:
-  - get
-  - patch
   - update

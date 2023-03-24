@@ -3,7 +3,7 @@
 VERSION ?= $(shell git describe --tags)
 # The Docker repository name, overridden in CI.
 DOCKER_REGISTRY ?= m8rmclarenkf
-DOCKER_IMAGE_NAME ?= ejbca-external-issuer/controller
+DOCKER_IMAGE_NAME ?= ejbca-external-issuer
 # Image URL to use all building/pushing image targets
 IMG ?= ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${VERSION}
 
