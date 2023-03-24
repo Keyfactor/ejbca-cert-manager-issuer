@@ -1,6 +1,12 @@
-
+# The version which will be reported by the --version argument of each binary
+# and which will be used as the Docker image tag
+VERSION ?= $(shell git describe --tags)
+# The Docker repository name, overridden in CI.
+DOCKER_REGISTRY ?= m8rmclarenkf
+DOCKER_IMAGE_NAME ?= ejbca-external-issuer/controller
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${VERSION}
+
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.26.0
 
