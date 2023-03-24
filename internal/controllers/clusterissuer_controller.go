@@ -17,20 +17,20 @@ limitations under the License.
 package controllers
 
 import (
-	"context"
+    "context"
 
-	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+    "k8s.io/apimachinery/pkg/runtime"
+    ctrl "sigs.k8s.io/controller-runtime"
+    "sigs.k8s.io/controller-runtime/pkg/client"
+    "sigs.k8s.io/controller-runtime/pkg/log"
 
-	ejbcaissuerv1alpha1 "github.com/Keyfactor/ejbca-issuer/api/v1alpha1"
+    ejbcaissuer "github.com/Keyfactor/ejbca-issuer/api/v1alpha1"
 )
 
 // ClusterIssuerReconciler reconciles a ClusterIssuer object
 type ClusterIssuerReconciler struct {
-	client.Client
-	Scheme *runtime.Scheme
+    client.Client
+    Scheme *runtime.Scheme
 }
 
 //+kubebuilder:rbac:groups=ejbca-issuer.keyfactor.com,resources=clusterissuers,verbs=get;list;watch;create;update;patch;delete
@@ -47,16 +47,16 @@ type ClusterIssuerReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *ClusterIssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+    _ = log.FromContext(ctx)
 
-	// TODO(user): your logic here
+    // TODO(user): your logic here
 
-	return ctrl.Result{}, nil
+    return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ClusterIssuerReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&ejbcaissuerv1alpha1.ClusterIssuer{}).
-		Complete(r)
+    return ctrl.NewControllerManagedBy(mgr).
+        For(&ejbcaissuer.ClusterIssuer{}).
+        Complete(r)
 }

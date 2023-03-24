@@ -33,7 +33,7 @@ import (
     "sigs.k8s.io/controller-runtime/pkg/healthz"
     "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-    ejbcaissuerv1alpha1 "github.com/Keyfactor/ejbca-issuer/api/v1alpha1"
+    ejbcaissuer "github.com/Keyfactor/ejbca-issuer/api/v1alpha1"
     //+kubebuilder:scaffold:imports
 )
 
@@ -45,7 +45,7 @@ var (
 func init() {
     utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-    utilruntime.Must(ejbcaissuerv1alpha1.AddToScheme(scheme))
+    utilruntime.Must(ejbcaissuer.AddToScheme(scheme))
     //+kubebuilder:scaffold:scheme
 
     _ = cmapi.AddToScheme(scheme)
