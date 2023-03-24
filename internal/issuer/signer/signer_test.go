@@ -15,10 +15,36 @@ import (
 )
 
 func TestEjbcaHealthCheckerFromIssuerAndSecretData(t *testing.T) {
+	pathToClientCert := os.Getenv("EJBCA_CLIENT_CERT_PATH")
+	hostname := os.Getenv("EJBCA_HOSTNAME")
 
+	if pathToClientCert == "" || hostname == "" {
+		t.Fatal("EJBCA_CLIENT_CERT_PATH and EJBCA_HOSTNAME must be set to run this test")
+	}
+
+	// Read the client cert and key from the file system.
+	clientCertBytes, err := os.ReadFile(pathToClientCert)
+	if err != nil {
+		return
+	}
+
+	secretData := map[string][]byte{}
+	secretData["hostname"] = []byte(hostname)
+	secretData["clientCert.pem"] = clientCertBytes
+
+	// Create the signer
+	checker, err := EjbcaHealthCheckerFromIssuerAndSecretData(nil, secretData)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = checker.Check()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log("Health check passed")
 }
-
-// EJBCA_CA_NAME=ManagementCA ;EJBCA_CERTIFICATE_PROFILE_NAME=tlsServerAuth;EJBCA_CLIENT_CERT_PATH=C:\Users\hroszell\OneDrive - Keyfactor\Documents\coding\EJBCA\certs\adminHaydenRoszell.pem;EJBCA_END_ENTITY_PROFILE_NAME=haydenEndEntity;EJBCA_HOSTNAME=https://it-ca01.pkihosted-dev.c2company.com/ejbca/
 
 func TestEjbcaSignerFromIssuerAndSecretData(t *testing.T) {
 	pathToClientCert := os.Getenv("EJBCA_CLIENT_CERT_PATH")

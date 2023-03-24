@@ -42,20 +42,20 @@ type Signer interface {
 
 type EjbcaSignerBuilder func(*ejbcaissuer.IssuerSpec, map[string][]byte) (Signer, error)
 
-func EjbcaHealthCheckerFromIssuerAndSecretData(*ejbcaissuer.IssuerSpec, map[string][]byte) (HealthChecker, error) {
-	return &ejbcaSigner{}, nil
+func EjbcaHealthCheckerFromIssuerAndSecretData(_ *ejbcaissuer.IssuerSpec, secretData map[string][]byte) (HealthChecker, error) {
+	signer := ejbcaSigner{}
+
+	client, err := createClientFromSecretMap(secretData)
+	if err != nil {
+		return nil, err
+	}
+
+	signer.client = client
+
+	return &signer, nil
 }
 
-func EjbcaSignerFromIssuerAndSecretData(_ *ejbcaissuer.IssuerSpec, secretData map[string][]byte) (Signer, error) {
-	signer := ejbcaSigner{}
-	// secretData contains the following keys:
-	// - hostname
-	// - clientCert.pem
-	// - clientKey.pem
-	// - certificateProfileName
-	// - endEntityProfileName
-	// - certificateAuthorityName
-
+func createClientFromSecretMap(secretData map[string][]byte) (*ejbca.APIClient, error) {
 	// Create EJBCA API Client
 	ejbcaConfig := ejbca.NewConfiguration()
 
@@ -105,6 +105,24 @@ func EjbcaSignerFromIssuerAndSecretData(_ *ejbcaissuer.IssuerSpec, secretData ma
 	if err != nil {
 		return nil, err
 	}
+
+	return client, nil
+}
+
+func EjbcaSignerFromIssuerAndSecretData(_ *ejbcaissuer.IssuerSpec, secretData map[string][]byte) (Signer, error) {
+	signer := ejbcaSigner{}
+	// secretData contains the following keys:
+	// - hostname
+	// - clientCert.pem
+	// - clientKey.pem
+	// - certificateProfileName
+	// - endEntityProfileName
+	// - certificateAuthorityName
+
+	client, err := createClientFromSecretMap(secretData)
+	if err != nil {
+		return nil, err
+	}
 	signer.client = client
 
 	// Extract EJBCA signing metadata from secret
@@ -135,6 +153,12 @@ type ejbcaSigner struct {
 }
 
 func (s *ejbcaSigner) Check() error {
+	// Check EJBCA API status
+	_, _, err := s.client.V1CertificateApi.Status2(context.Background()).Execute()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

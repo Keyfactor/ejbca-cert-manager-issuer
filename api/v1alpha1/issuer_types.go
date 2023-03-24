@@ -17,28 +17,28 @@ limitations under the License.
 package v1alpha1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // IssuerSpec defines the desired state of Issuer
 type IssuerSpec struct {
-	// Hostname is the hostname of the EJBCA server
-	Hostname string `json:"hostname"`
+    // Hostname is the hostname of the EJBCA server
+    Hostname string `json:"hostname"`
 
-	// A reference to a Secret in the same namespace as the referent. If the
-	// referent is a ClusterIssuer, the reference instead refers to the resource
-	// with the given name in the configured 'cluster resource namespace', which
-	// is set as a flag on the controller component (and defaults to the
-	// namespace that the controller runs in).
-	ClientCertificateSecretName string `json:"clientCertificateSecretName"`
+    // A reference to a Secret in the same namespace as the referent. If the
+    // referent is a ClusterIssuer, the reference instead refers to the resource
+    // with the given name in the configured 'cluster resource namespace', which
+    // is set as a flag on the controller component (and defaults to the
+    // namespace that the controller runs in).
+    EjbcaSecretName string `json:"ejbcaSecretName"`
 }
 
 // IssuerStatus defines the observed state of Issuer
 type IssuerStatus struct {
-	// List of status conditions to indicate the status of a CertificateRequest.
-	// Known condition types are `Ready`.
-	// +optional
-	Conditions []IssuerCondition `json:"conditions,omitempty"`
+    // List of status conditions to indicate the status of a CertificateRequest.
+    // Known condition types are `Ready`.
+    // +optional
+    Conditions []IssuerCondition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -46,55 +46,55 @@ type IssuerStatus struct {
 
 // Issuer is the Schema for the issuers API
 type Issuer struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+    metav1.TypeMeta   `json:",inline"`
+    metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   IssuerSpec   `json:"spec,omitempty"`
-	Status IssuerStatus `json:"status,omitempty"`
+    Spec   IssuerSpec   `json:"spec,omitempty"`
+    Status IssuerStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
 // IssuerList contains a list of Issuer
 type IssuerList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Issuer `json:"items"`
+    metav1.TypeMeta `json:",inline"`
+    metav1.ListMeta `json:"metadata,omitempty"`
+    Items           []Issuer `json:"items"`
 }
 
 // IssuerCondition contains condition information for an Issuer.
 type IssuerCondition struct {
-	// Type of the condition, known values are ('Ready').
-	Type IssuerConditionType `json:"type"`
+    // Type of the condition, known values are ('Ready').
+    Type IssuerConditionType `json:"type"`
 
-	// Status of the condition, one of ('True', 'False', 'Unknown').
-	Status ConditionStatus `json:"status"`
+    // Status of the condition, one of ('True', 'False', 'Unknown').
+    Status ConditionStatus `json:"status"`
 
-	// LastTransitionTime is the timestamp corresponding to the last status
-	// change of this condition.
-	// +optional
-	LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`
+    // LastTransitionTime is the timestamp corresponding to the last status
+    // change of this condition.
+    // +optional
+    LastTransitionTime *metav1.Time `json:"lastTransitionTime,omitempty"`
 
-	// Reason is a brief machine readable explanation for the condition's last
-	// transition.
-	// +optional
-	Reason string `json:"reason,omitempty"`
+    // Reason is a brief machine readable explanation for the condition's last
+    // transition.
+    // +optional
+    Reason string `json:"reason,omitempty"`
 
-	// Message is a human readable description of the details of the last
-	// transition, complementing reason.
-	// +optional
-	Message string `json:"message,omitempty"`
+    // Message is a human readable description of the details of the last
+    // transition, complementing reason.
+    // +optional
+    Message string `json:"message,omitempty"`
 }
 
 // IssuerConditionType represents an Issuer condition value.
 type IssuerConditionType string
 
 const (
-	// IssuerConditionReady represents the fact that a given Issuer condition
-	// is in ready state and able to issue certificates.
-	// If the `status` of this condition is `False`, CertificateRequest controllers
-	// should prevent attempts to sign certificates.
-	IssuerConditionReady IssuerConditionType = "Ready"
+    // IssuerConditionReady represents the fact that a given Issuer condition
+    // is in ready state and able to issue certificates.
+    // If the `status` of this condition is `False`, CertificateRequest controllers
+    // should prevent attempts to sign certificates.
+    IssuerConditionReady IssuerConditionType = "Ready"
 )
 
 // ConditionStatus represents a condition's status.
@@ -107,16 +107,16 @@ type ConditionStatus string
 // condition or not. In the future, we could add other intermediate
 // conditions, e.g. ConditionDegraded.
 const (
-	// ConditionTrue represents the fact that a given condition is true
-	ConditionTrue ConditionStatus = "True"
+    // ConditionTrue represents the fact that a given condition is true
+    ConditionTrue ConditionStatus = "True"
 
-	// ConditionFalse represents the fact that a given condition is false
-	ConditionFalse ConditionStatus = "False"
+    // ConditionFalse represents the fact that a given condition is false
+    ConditionFalse ConditionStatus = "False"
 
-	// ConditionUnknown represents the fact that a given condition is unknown
-	ConditionUnknown ConditionStatus = "Unknown"
+    // ConditionUnknown represents the fact that a given condition is unknown
+    ConditionUnknown ConditionStatus = "Unknown"
 )
 
 func init() {
-	SchemeBuilder.Register(&Issuer{}, &IssuerList{})
+    SchemeBuilder.Register(&Issuer{}, &IssuerList{})
 }
