@@ -6,6 +6,30 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificaterequests
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificaterequests/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - ejbca-issuer.keyfactor.com
   resources:
   - clusterissuers
@@ -27,32 +51,6 @@ rules:
   - ejbca-issuer.keyfactor.com
   resources:
   - clusterissuers/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - ejbca-issuer.keyfactor.com
-  resources:
-  - issuers
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ejbca-issuer.keyfactor.com
-  resources:
-  - issuers/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - ejbca-issuer.keyfactor.com
-  resources:
-  - issuers/status
   verbs:
   - get
   - patch
