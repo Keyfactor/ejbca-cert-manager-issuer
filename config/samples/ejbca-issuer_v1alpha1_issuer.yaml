@@ -9,4 +9,8 @@ metadata:
     app.kubernetes.io/created-by: ejbca-issuer
   name: issuer-sample
 spec:
-  # TODO(user): Add fields here
+  hostname: ""
+  authSecretName: ""
+  certificateAuthorityName: ""
+  certificateProfileName: ""
+  endEntityProfileName: ""
