@@ -23,7 +23,10 @@ import (
 // IssuerSpec defines the desired state of Issuer
 type IssuerSpec struct {
     // Hostname is the hostname of the EJBCA server
-    Hostname string `json:"hostname"`
+    Hostname                 string `json:"hostname"`
+    CertificateProfileName   string `json:"certificateProfileName"`
+    EndEntityProfileName     string `json:"endEntityProfileName"`
+    CertificateAuthorityName string `json:"certificateAuthorityName"`
 
     // A reference to a Secret in the same namespace as the referent. If the
     // referent is a ClusterIssuer, the reference instead refers to the resource
