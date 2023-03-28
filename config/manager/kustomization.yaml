@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: m8rmclarenkf/ejbca-external-issuer
-  newTag: v1.0.0-5-g28db3db
+  newTag: v1.0.0-6-gc2244e0
