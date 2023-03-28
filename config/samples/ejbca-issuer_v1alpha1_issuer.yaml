@@ -10,7 +10,7 @@ metadata:
   name: issuer-sample
 spec:
   hostname: ""
-  authSecretName: ""
+  ejbcaSecretName: ""
   certificateAuthorityName: ""
   certificateProfileName: ""
   endEntityProfileName: ""
