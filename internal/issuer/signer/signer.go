@@ -23,9 +23,11 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"github.com/Keyfactor/ejbca-go-client-sdk/api/ejbca"
 	ejbcaissuer "github.com/Keyfactor/ejbca-issuer/api/v1alpha1"
 	"math/rand"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
 	"time"
 )
@@ -41,18 +43,18 @@ type HealthChecker interface {
 	Check() error
 }
 
-type HealthCheckerBuilder func(*ejbcaissuer.IssuerSpec, map[string][]byte) (HealthChecker, error)
+type HealthCheckerBuilder func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte) (HealthChecker, error)
 
 type Signer interface {
-	Sign([]byte) ([]byte, error)
+	Sign(context.Context, []byte) ([]byte, error)
 }
 
-type EjbcaSignerBuilder func(*ejbcaissuer.IssuerSpec, map[string][]byte) (Signer, error)
+type EjbcaSignerBuilder func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte) (Signer, error)
 
-func EjbcaHealthCheckerFromIssuerAndSecretData(spec *ejbcaissuer.IssuerSpec, secretData map[string][]byte) (HealthChecker, error) {
+func EjbcaHealthCheckerFromIssuerAndSecretData(ctx context.Context, spec *ejbcaissuer.IssuerSpec, secretData map[string][]byte) (HealthChecker, error) {
 	signer := ejbcaSigner{}
 
-	client, err := createClientFromSecretMap(spec.Hostname, secretData)
+	client, err := createClientFromSecretMap(ctx, spec.Hostname, secretData)
 	if err != nil {
 		return nil, err
 	}
@@ -62,11 +64,11 @@ func EjbcaHealthCheckerFromIssuerAndSecretData(spec *ejbcaissuer.IssuerSpec, sec
 	return &signer, nil
 }
 
-func EjbcaSignerFromIssuerAndSecretData(spec *ejbcaissuer.IssuerSpec, secretData map[string][]byte) (Signer, error) {
+func EjbcaSignerFromIssuerAndSecretData(ctx context.Context, spec *ejbcaissuer.IssuerSpec, secretData map[string][]byte) (Signer, error) {
 	signer := ejbcaSigner{}
 	// secretData contains data from a K8s TLS secret object
 
-	client, err := createClientFromSecretMap(spec.Hostname, secretData)
+	client, err := createClientFromSecretMap(ctx, spec.Hostname, secretData)
 	if err != nil {
 		return nil, err
 	}
@@ -99,11 +101,16 @@ func (s *ejbcaSigner) Check() error {
 	return nil
 }
 
-func (s *ejbcaSigner) Sign(csrBytes []byte) ([]byte, error) {
+func (s *ejbcaSigner) Sign(ctx context.Context, csrBytes []byte) ([]byte, error) {
+	k8sLog := log.FromContext(ctx)
+
 	csr, err := parseCSR(csrBytes)
 	if err != nil {
 		return nil, err
 	}
+
+	// Log the common metadata of the CSR
+	k8sLog.Info(fmt.Sprintf("Found CSR wtih Common Name \"%s\" and %d DNS SANs, %d IP SANs, and %d URI SANs", csr.Subject.CommonName, len(csr.DNSNames), len(csr.IPAddresses), len(csr.URIs)))
 
 	// If the CSR has a CommonName, use it as the EJBCA end entity name
 	var ejbcaEeName string
@@ -112,6 +119,8 @@ func (s *ejbcaSigner) Sign(csrBytes []byte) ([]byte, error) {
 	} else {
 		ejbcaEeName = csr.Subject.SerialNumber
 	}
+
+	k8sLog.Info(fmt.Sprintf("Using or Creating EJBCA End Entity called \"%s\"", ejbcaEeName))
 
 	// Configure EJBCA PKCS#10 request
 	enroll := ejbca.EnrollCertificateRestRequest{
@@ -124,22 +133,39 @@ func (s *ejbcaSigner) Sign(csrBytes []byte) ([]byte, error) {
 		IncludeChain:             ptr(true),
 	}
 
+	k8sLog.Info(fmt.Sprintf("Enrolling certificate with EJBCA with certificate profile name \"%s\", end entity profile name \"%s\", and certificate authority name \"%s\"", s.certificateProfileName, s.endEntityProfileName, s.certificateAuthorityName))
+
 	// Enroll certificate
 	certificateObject, _, err := s.client.V1CertificateApi.EnrollPkcs10Certificate(context.Background()).EnrollCertificateRestRequest(enroll).Execute()
 	if err != nil {
-		return nil, err
+		detail := fmt.Sprintf("error enrolling certificate with EJBCA. verify that the certificate profile name, end entity profile name, and certificate authority name are appropriate for the certificate request.")
+
+		bodyError, ok := err.(*ejbca.GenericOpenAPIError)
+		if ok {
+			detail += fmt.Sprintf(" - %s", string(bodyError.Body()))
+		}
+
+		k8sLog.Error(err, detail)
+
+		return nil, fmt.Errorf(detail)
 	}
 
 	certAndChain, _, err := getCertificatesFromEjbcaObject(*certificateObject)
 	if err != nil {
+		k8sLog.Error(err, fmt.Sprintf("error getting certificate from EJBCA response: %s", err.Error()))
 		return nil, err
 	}
 
+	k8sLog.Info(fmt.Sprintf("Successfully enrolled certificate with EJBCA"))
+
 	// Return the certificate and chain in PEM format
-	return []byte(compileCertificatesToPemString(certAndChain)), nil
+	return compileCertificatesToPemBytes(certAndChain)
 }
 
-func createClientFromSecretMap(hostname string, secretData map[string][]byte) (*ejbca.APIClient, error) {
+func createClientFromSecretMap(ctx context.Context, hostname string, secretData map[string][]byte) (*ejbca.APIClient, error) {
+	var err error
+	k8sLog := log.FromContext(ctx)
+
 	// Create EJBCA API Client
 	ejbcaConfig := ejbca.NewConfiguration()
 
@@ -148,31 +174,57 @@ func createClientFromSecretMap(hostname string, secretData map[string][]byte) (*
 	}
 
 	clientCertByte, ok := secretData["tls.crt"]
-	if !ok {
+	if !ok || len(clientCertByte) == 0 {
 		return nil, errors.New("tls.crt not found in secret data")
 	}
 
-	// Decode client certificate PEM block
-	clientCertPemBlock, clientKeyBytes, err := decodePEMBytes(clientCertByte)
-	if err != nil {
-		return nil, err
+	// Try to decode client certificate as a PEM formatted block
+	clientCertPemBlock, clientKeyPemBlock := decodePEMBytes(clientCertByte)
+
+	// If clientCertPemBlock is empty, try to decode the certificate as a DER formatted block
+	if len(clientCertPemBlock) == 0 {
+		k8sLog.Info("tls.crt does not appear to be PEM formatted. Attempting to decode as DER formatted block.")
+		// Try to b64 decode the DER formatted block, but don't error if it fails
+		clientCertBytes, err := base64.StdEncoding.DecodeString(string(clientCertByte))
+		if err == nil {
+			clientCertPemBlock = append(clientCertPemBlock, &pem.Block{Type: "CERTIFICATE", Bytes: clientCertBytes})
+		} else {
+			// If b64 decoding fails, assume the certificate is DER formatted
+			clientCertPemBlock = append(clientCertPemBlock, &pem.Block{Type: "CERTIFICATE", Bytes: clientCertByte})
+		}
 	}
 
 	// Determine if ejbcaCert contains a private key
 	clientCertContainsKey := false
-	if len(clientKeyBytes) > 0 {
+	if clientKeyPemBlock != nil {
 		clientCertContainsKey = true
 	}
 
 	if !clientCertContainsKey {
-		clientKeyBytes, ok = secretData["tls.key"]
-		if !ok {
+		clientKeyBytes, ok := secretData["tls.key"]
+		if !ok || len(clientKeyBytes) == 0 {
 			return nil, errors.New("tls.pem not found in secret data")
+		}
+
+		// Try to decode client key as a PEM formatted block
+		_, tempKeyPemBlock := decodePEMBytes(clientKeyBytes)
+		if tempKeyPemBlock != nil {
+			clientKeyPemBlock = tempKeyPemBlock
+		} else {
+			k8sLog.Info("tls.key does not appear to be PEM formatted. Attempting to decode as DER formatted block.")
+			// Try to b64 decode the DER formatted block, but don't error if it fails
+			tempKeyBytes, err := base64.StdEncoding.DecodeString(string(clientKeyBytes))
+			if err == nil {
+				clientKeyPemBlock = &pem.Block{Type: "PRIVATE KEY", Bytes: tempKeyBytes}
+			} else {
+				// If b64 decoding fails, assume the private key is DER formatted
+				clientKeyPemBlock = &pem.Block{Type: "PRIVATE KEY", Bytes: clientKeyBytes}
+			}
 		}
 	}
 
 	// Create a TLS certificate object
-	tlsCert, err := tls.X509KeyPair(pem.EncodeToMemory(clientCertPemBlock[0]), clientKeyBytes)
+	tlsCert, err := tls.X509KeyPair(pem.EncodeToMemory(clientCertPemBlock[0]), pem.EncodeToMemory(clientKeyPemBlock))
 	if err != nil {
 		return nil, err
 	}
@@ -185,6 +237,8 @@ func createClientFromSecretMap(hostname string, secretData map[string][]byte) (*
 	if err != nil {
 		return nil, err
 	}
+
+	k8sLog.Info(fmt.Sprintf("Successfully created EJBCA API client."))
 
 	return client, nil
 }
@@ -258,7 +312,7 @@ func getCertificatesFromEjbcaObject(ejbcaCert ejbca.CertificateRestResponse) ([]
 
 // compileCertificatesToPemString takes a slice of x509 certificates and returns a string containing the certificates in PEM format
 // If an error occurred, the function logs the error and continues to parse the remaining objects.
-func compileCertificatesToPemString(certificates []*x509.Certificate) string {
+func compileCertificatesToPemBytes(certificates []*x509.Certificate) ([]byte, error) {
 	var pemBuilder strings.Builder
 
 	for _, certificate := range certificates {
@@ -267,15 +321,15 @@ func compileCertificatesToPemString(certificates []*x509.Certificate) string {
 			Bytes: certificate.Raw,
 		})
 		if err != nil {
-			// TODO logging
+			return make([]byte, 0, 0), err
 		}
 	}
 
-	return pemBuilder.String()
+	return []byte(pemBuilder.String()), nil
 }
 
-func decodePEMBytes(buf []byte) ([]*pem.Block, []byte, error) {
-	var privKey []byte
+func decodePEMBytes(buf []byte) ([]*pem.Block, *pem.Block) {
+	var privKey *pem.Block
 	var certificates []*pem.Block
 	var block *pem.Block
 	for {
@@ -283,12 +337,12 @@ func decodePEMBytes(buf []byte) ([]*pem.Block, []byte, error) {
 		if block == nil {
 			break
 		} else if strings.Contains(block.Type, "PRIVATE KEY") {
-			privKey = pem.EncodeToMemory(block)
+			privKey = block
 		} else {
 			certificates = append(certificates, block)
 		}
 	}
-	return certificates, privKey, nil
+	return certificates, privKey
 }
 
 func ptr[T any](v T) *T {

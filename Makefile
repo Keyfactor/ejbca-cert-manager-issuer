@@ -5,7 +5,8 @@ VERSION ?= $(shell git describe --tags)
 DOCKER_REGISTRY ?= m8rmclarenkf
 DOCKER_IMAGE_NAME ?= ejbca-external-issuer
 # Image URL to use all building/pushing image targets
-IMG ?= ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${VERSION}
+#IMG ?= ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${VERSION}
+IMG ?= ejbca-issuer-dev:latest
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.26.0
@@ -128,7 +129,7 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 ##@ Build Dependencies
 
 ## Location to install dependencies to
-LOCALBIN ?= $(shell pwd)/bin
+LOCALBIN ?= "$(shell pwd)/bin"
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 

@@ -2,6 +2,7 @@ package signer
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -37,7 +38,7 @@ func TestEjbcaHealthCheckerFromIssuerAndSecretData(t *testing.T) {
 	}
 
 	// Create the signer
-	checker, err := EjbcaHealthCheckerFromIssuerAndSecretData(&spec, secretData)
+	checker, err := EjbcaHealthCheckerFromIssuerAndSecretData(context.Background(), &spec, secretData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +83,7 @@ func TestEjbcaSignerFromIssuerAndSecretData(t *testing.T) {
 	}
 
 	// Create the signer
-	signer, err := EjbcaSignerFromIssuerAndSecretData(&spec, secretData)
+	signer, err := EjbcaSignerFromIssuerAndSecretData(context.Background(), &spec, secretData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +94,7 @@ func TestEjbcaSignerFromIssuerAndSecretData(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	signedCert, err := signer.Sign(csr)
+	signedCert, err := signer.Sign(context.Background(), csr)
 	if err != nil {
 		return
 	}

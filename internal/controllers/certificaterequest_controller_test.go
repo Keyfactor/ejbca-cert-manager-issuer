@@ -38,7 +38,7 @@ type fakeSigner struct {
 	errSign error
 }
 
-func (o *fakeSigner) Sign([]byte) ([]byte, error) {
+func (o *fakeSigner) Sign(context.Context, []byte) ([]byte, error) {
 	return []byte("fake signed certificate"), o.errSign
 }
 
@@ -102,7 +102,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					},
 				},
 			},
-			Builder: func(*ejbcaissuer.IssuerSpec, map[string][]byte) (signer.Signer, error) {
+			Builder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte) (signer.Signer, error) {
 				return &fakeSigner{}, nil
 			},
 			expectedReadyConditionStatus: cmmeta.ConditionTrue,
@@ -153,7 +153,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					},
 				},
 			},
-			Builder: func(*ejbcaissuer.IssuerSpec, map[string][]byte) (signer.Signer, error) {
+			Builder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte) (signer.Signer, error) {
 				return &fakeSigner{}, nil
 			},
 			clusterResourceNamespace:     "kube-system",
@@ -419,7 +419,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					},
 				},
 			},
-			Builder: func(*ejbcaissuer.IssuerSpec, map[string][]byte) (signer.Signer, error) {
+			Builder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte) (signer.Signer, error) {
 				return nil, errors.New("simulated signer builder error")
 			},
 			expectedError:                errSignerBuilder,
@@ -470,7 +470,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					},
 				},
 			},
-			Builder: func(*ejbcaissuer.IssuerSpec, map[string][]byte) (signer.Signer, error) {
+			Builder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte) (signer.Signer, error) {
 				return &fakeSigner{errSign: errors.New("simulated sign error")}, nil
 			},
 			expectedError:                errSignerSign,
@@ -517,7 +517,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					},
 				},
 			},
-			Builder: func(*ejbcaissuer.IssuerSpec, map[string][]byte) (signer.Signer, error) {
+			Builder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte) (signer.Signer, error) {
 				return &fakeSigner{}, nil
 			},
 			expectedFailureTime: nil,

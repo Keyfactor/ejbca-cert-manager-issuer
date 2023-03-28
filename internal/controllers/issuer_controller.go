@@ -123,7 +123,7 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 		return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %v", errGetAuthSecret, secretName, err)
 	}
 
-	checker, err := r.HealthCheckerBuilder(issuerSpec, secret.Data)
+	checker, err := r.HealthCheckerBuilder(ctx, issuerSpec, secret.Data)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("%w: %v", errHealthCheckerBuilder, err)
 	}

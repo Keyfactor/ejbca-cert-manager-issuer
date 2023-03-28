@@ -159,12 +159,12 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, nil
 	}
 
-	// Ignore but log an error if the issuerRef.Kind is unrecognised
+	// Ignore but log an error if the issuerRef.Kind is Unrecognized
 	issuerGVK := ejbcaissuer.GroupVersion.WithKind(certificateRequest.Spec.IssuerRef.Kind)
 	issuerRO, err := r.Scheme.New(issuerGVK)
 	if err != nil {
 		err = fmt.Errorf("%w: %v", errIssuerRef, err)
-		log.Error(err, "Unrecognised kind. Ignoring.")
+		log.Error(err, "Unrecognized kind. Ignoring.")
 		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, err.Error())
 		return ctrl.Result{}, nil
 	}
@@ -215,12 +215,12 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %v", errGetAuthSecret, secretName, err)
 	}
 
-	signer, err := r.SignerBuilder(issuerSpec, secret.Data)
+	ejbcaSigner, err := r.SignerBuilder(ctx, issuerSpec, secret.Data)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("%w: %v", errSignerBuilder, err)
 	}
 
-	signed, err := signer.Sign(certificateRequest.Spec.Request)
+	signed, err := ejbcaSigner.Sign(ctx, certificateRequest.Spec.Request)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("%w: %v", errSignerSign, err)
 	}
