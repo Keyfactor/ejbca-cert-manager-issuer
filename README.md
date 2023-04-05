@@ -81,7 +81,6 @@ metadata:
     app.kubernetes.io/name: issuer
     app.kubernetes.io/instance: issuer-sample
     app.kubernetes.io/part-of: ejbca-issuer
-    app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: ejbca-issuer
   name: issuer-sample
 spec:
@@ -100,7 +99,6 @@ metadata:
     app.kubernetes.io/name: clusterissuer
     app.kubernetes.io/instance: clusterissuer-sample
     app.kubernetes.io/part-of: ejbca-issuer
-    app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: ejbca-issuer
   name: clusterissuer-sample
 spec:
@@ -132,7 +130,7 @@ kubectl -n ejbca-issuer-system apply -f certificate.yaml
 
 The certificate must then be approved by an authorized service account. This can be done manually by running the following command:
 ```shell
-cmctl approve certificate ejbca-certificate
+cmctl -n ejbca-issuer-system approve ejbca-certificate
 ```
 
 ## Cleanup

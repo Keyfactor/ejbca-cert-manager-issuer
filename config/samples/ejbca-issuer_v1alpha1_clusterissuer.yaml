@@ -5,7 +5,6 @@ metadata:
     app.kubernetes.io/name: clusterissuer
     app.kubernetes.io/instance: clusterissuer-sample
     app.kubernetes.io/part-of: ejbca-issuer
-    app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: ejbca-issuer
   name: clusterissuer-sample
 spec:
