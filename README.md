@@ -71,7 +71,7 @@ Create a K8s TLS secret containing the client certificate and key to authenticat
 kubectl -n ejbca-issuer-system create secret tls ejbca-secret --cert=client.crt --key=client.key
 ```
 
-Create an EJBCA Issuer and ClusterIssue:
+Create an EJBCA Issuer and ClusterIssuer:
 ```shell
 cat <<EOF >> issuer.yaml
 apiVersion: ejbca-issuer.keyfactor.com/v1alpha1
