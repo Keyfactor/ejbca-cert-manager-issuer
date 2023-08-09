@@ -18,62 +18,79 @@ The cert-manager external issuer for Keyfactor EJBCA is open source and communit
 
 ###### To report a problem or suggest a new feature, use the **[Issues](../../issues)** tab. If you want to contribute actual bug fixes or proposed enhancements, see the [contribution guidelines](https://github.com/Keyfactor/ejbca-k8s-csr-signer/blob/main/CONTRIBUTING.md) and use the **[Pull requests](../../pulls)** tab.
 
-## Requirements
-### To build
-* [Git](https://git-scm.com/)
-* [Golang](https://golang.org/) >= v1.19
-* [Kubebuilder](https://book.kubebuilder.io/quick-start.html#installation) >= v2.3.1
-* [Kustomize](https://kustomize.io/) >= v3.8.1
+## Quick Start
 
-### To use
-* [Keyfactor EJBCA](https://www.keyfactor.com/products/ejbca-enterprise/) >= v7.7
+The quick start guide will walk you through the process of installing the cert-manager external issuer for Keyfactor EJBCA.
+The controller image is pulled from [Docker Hub](https://hub.docker.com/r/m8rmclarenkf/ejbca-external-issuer). 
+
+###### To build  the container from sources, refer to the [Building Container Image from Source](#building-container-image-from-source) section.
+
+### Requirements
+* [Git](https://git-scm.com/)
 * [Make](https://www.gnu.org/software/make/)
 * [Docker](https://docs.docker.com/engine/install/) >= v20.10.0
 * [Kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/) >= v1.11.3
 * Kubernetes >= v1.19
   * [Kubernetes](https://kubernetes.io/docs/tasks/tools/), [Minikube](https://minikube.sigs.k8s.io/docs/start/), or [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/)
+* [Keyfactor EJBCA](https://www.keyfactor.com/products/ejbca-enterprise/) >= v7.7
 * [cert-manager](https://cert-manager.io/docs/installation/) >= v1.11.0
+* [cmctl](https://cert-manager.io/docs/reference/cmctl/)
 
-To quickly create a Kubernetes cluster for testing purposes, you can use [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/).
-```shell
-kind create cluster
-```
-To see the single node for the cluster, run:
+Before starting, ensure that all the requirements above are met, and that at least one Kubernetes node is running by running the following command:
 ```shell
 kubectl get nodes
 ```
 
-## Building Container Image from Source
-To build the cert-manager external issuer for Keyfactor EJBCA, run:
-```shell
-make docker-build
-```
-
-## Installation
-Install the static cert-manager configuration:
+Once Kubernetes is running, a static installation of cert-manager can be installed with the following command:
 ```shell
 kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.11.0/cert-manager.yaml
 ```
 
-To install the custom resource definitions (CRDs) for the cert-manager external issuer for Keyfactor EJBCA, run:
+Then, install the custom resource definitions (CRDs) for the cert-manager external issuer for Keyfactor EJBCA:
 ```shell
 make install
 ```
 
-To deploy the controller to the cluster, run:
+Finally, deploy the controller to the cluster:
 ```shell
 make deploy
 ```
 
 ## Usage
+The cert-manager external issuer for Keyfactor EJBCA can be used to issue certificates from Keyfactor EJBCA using cert-manager.
+
+### Authentication
+Authentication to the EJBCA platform is done using a client certificate and key. The client certificate and key must be provided as a Kubernetes secret.
+
 Create a K8s TLS secret containing the client certificate and key to authenticate with EJBCA:
 ```shell
 kubectl -n ejbca-issuer-system create secret tls ejbca-secret --cert=client.crt --key=client.key
 ```
 
-Create an EJBCA Issuer and ClusterIssuer:
+If the EJBCA API is configured to use a self-signed certificate or with a certificate signed by an untrusted root, the CA certificate must be provided as a Kubernetes secret.
 ```shell
-cat <<EOF >> issuer.yaml
+kubectl -n ejbca-issuer-system create secret generic ejbca-ca-secret --from-file=ca.crt
+```
+
+### Creating Issuer and ClusterIssuer resources
+The `ejbca-issuer.keyfactor.com/v1alpha1` API version supports Issuer and ClusterIssuer resources. 
+The ejbca controller will automatically detect and process resources of both types.
+
+The Issuer resource is namespaced, while the ClusterIssuer resource is cluster-scoped.
+For example, ClusterIssuer resources can be used to issue certificates for resources in multiple namespaces, whereas Issuer resources can only be used to issue certificates for resources in the same namespace.
+
+The `spec` field of both the Issuer and ClusterIssuer resources use the following fields:
+* `hostname` - The hostname of the EJBCA instance
+* `ejbcaSecretName` - The name of the Kubernetes secret containing the client certificate and key
+* `certificateAuthorityName` - The name of the EJBCA certificate authority to use. For example, `ManagementCA`
+* `certificateProfileName` - The name of the EJBCA certificate profile to use. For example, `ENDUSER`
+* `endEntityProfileName` - The name of the EJBCA end entity profile to use. For example, `ENDUSER`
+* `caSecretName` - The name of the Kubernetes secret containing the CA certificate. This field is optional and only required if the EJBCA API is configured to use a self-signed certificate or with a certificate signed by an untrusted root.
+
+###### If a different combination of hostname/certificate authority/certificate profile/end entity profile is required, a new Issuer or ClusterIssuer resource must be created. Each resource instantiation represents a single configuration.
+
+The following is an example of an Issuer resource:
+```yaml
 apiVersion: ejbca-issuer.keyfactor.com/v1alpha1
 kind: Issuer
 metadata:
@@ -89,9 +106,11 @@ spec:
   certificateAuthorityName: ""
   certificateProfileName: ""
   endEntityProfileName: ""
-EOF
-kubectl -n ejbca-issuer-system apply -f issuer.yaml
-cat <<EOF >> clusterissuer.yaml
+  caSecretName: ""
+```
+
+The following is an example of a ClusterIssuer resource:
+```yaml
 apiVersion: ejbca-issuer.keyfactor.com/v1alpha1
 kind: ClusterIssuer
 metadata:
@@ -107,13 +126,45 @@ spec:
   certificateAuthorityName: ""
   certificateProfileName: ""
   endEntityProfileName: ""
-EOF
+  caSecretName: ""
+```
+
+To create new resources from the above examples, replace the empty strings with the appropriate values and apply the resources to the cluster:
+```shell
+kubectl -n ejbca-issuer-system apply -f issuer.yaml
 kubectl -n ejbca-issuer-system apply -f clusterissuer.yaml
 ```
 
-To create a certificate, create a Certificate resource:
-```shell
-cat <<EOF >> certificate.yaml
+### Using Issuer and ClusterIssuer resources
+Once the Issuer and ClusterIssuer resources are created, they can be used to issue certificates using cert-manager.
+The two most important concepts are `Certificate` and `CertificateRequest` resources. `Certificate`
+resources represent a single X.509 certificate and its associated attributes, and automatically renews the certificate
+and keeps it up to date. When `Certificate` resources are created, they create `CertificateRequest` resources, which
+use an Issuer or ClusterIssuer to actually issue the certificate.
+
+###### To learn more about cert-manager, see the [cert-manager documentation](https://cert-manager.io/docs/).
+
+The following is an example of a Certificate resource. This resource will create a corresponding CertificateRequest resource,
+and will use the `issuer-sample` Issuer resource to issue the certificate. Once issued, the certificate will be stored in a
+Kubernetes secret named `ejbca-certificate`.
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ejbca-certificate
+spec:
+  commonName: ejbca-issuer-sample
+  secretName: ejbca-certificate
+  issuerRef:
+    name: issuer-sample
+    group: ejbca-issuer.keyfactor.com
+    kind: Issuer
+```
+
+###### Certificate resources support many more fields than the above example. See the [Certificate resource documentation](https://cert-manager.io/docs/usage/certificate/) for more information.
+
+Similarly, a CertificateRequest resource can be created directly. The following is an example of a CertificateRequest resource.
+```yaml
 apiVersion: cert-manager.io/v1
 kind: CertificateRequest
 metadata:
@@ -124,14 +175,18 @@ spec:
     name: issuer-sample
     group: ejbca-issuer.keyfactor.com
     kind: Issuer
-EOF
-kubectl -n ejbca-issuer-system apply -f certificate.yaml
 ```
 
-The certificate must then be approved by an authorized service account. This can be done manually by running the following command:
+### Approving Certificate Requests
+Unless the cert-manager internal approver automatically approves the request, newly created CertificateRequest resources 
+will be in a `Pending` state until they are approved. CertificateRequest resources can be approved manually by using
+[cmctl](https://cert-manager.io/docs/reference/cmctl/#approve-and-deny-certificaterequests). The following is an example 
+of approving a CertificateRequest resource named `ejbca-certificate` in the `ejbca-issuer-system` namespace.
 ```shell
 cmctl -n ejbca-issuer-system approve ejbca-certificate
 ```
+
+###### To learn more about certificate approval and RBAC configuration, see the [cert-manager documentation](https://cert-manager.io/docs/concepts/certificaterequest/#approval).
 
 ## Cleanup
 To remove the controller from the cluster, run:
@@ -142,4 +197,27 @@ make undeploy
 To remove the custom resource definitions (CRDs) for the cert-manager external issuer for Keyfactor EJBCA, run:
 ```shell
 make uninstall
+```
+
+## Building Container Image from Source
+
+### Requirements
+* [Golang](https://golang.org/) >= v1.19
+
+Building the container from source first runs appropriate test cases, which requires all requirements also listed in the
+Quick Start section. As part of this testing is an enrollment of a certificate with EJBCA, so a running instance of EJBCA
+is also required.
+
+The following environment variables must be exported before building the container image:
+* `EJBCA_HOSTNAME` - The hostname of the EJBCA instance to use for testing.
+* `EJBCA_CLIENT_CERT_PATH` - A relative or absolute path to a client certificate that is authorized to enroll certificates in EJBCA. The file must include the certificate and associated private key in unencrypted PKCS#8 format.
+* `EJBCA_CA_NAME` - The name of the CA in EJBCA to use for testing.
+* `EJBCA_CERTIFICATE_PROFILE_NAME` - The name of the certificate profile in EJBCA to use for testing.
+* `EJBCA_END_ENTITY_PROFILE_NAME` - The name of the end entity profile in EJBCA to use for testing.
+* `EJBCA_CSR_SUBJECT` - The subject of the certificate signing request (CSR) to use for testing.
+* `EJBCA_CA_CERT_PATH` - A relative or absolute path to the CA certificate that the EJBCA instance uses for TLS. The file must include the certificate in PEM format.
+
+To build the cert-manager external issuer for Keyfactor EJBCA, run:
+```shell
+make docker-build
 ```
