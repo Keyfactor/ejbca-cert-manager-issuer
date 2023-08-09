@@ -18,6 +18,11 @@ The cert-manager external issuer for Keyfactor EJBCA is open source and communit
 
 ###### To report a problem or suggest a new feature, use the **[Issues](../../issues)** tab. If you want to contribute actual bug fixes or proposed enhancements, see the [contribution guidelines](https://github.com/Keyfactor/ejbca-k8s-csr-signer/blob/main/CONTRIBUTING.md) and use the **[Pull requests](../../pulls)** tab.
 
+## EJBCA API Usage
+The EJBCA Issuer for cert-manager requires the following API endpoints:
+* `/ejbca-rest-api/v1/certificate/pkcs10enroll`
+* `/ejbca/ejbca-rest-api/v1/certificate/status`
+
 ## Quick Start
 
 The quick start guide will walk you through the process of installing the cert-manager external issuer for Keyfactor EJBCA.
