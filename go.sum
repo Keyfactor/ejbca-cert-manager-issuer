@@ -35,8 +35,8 @@ github.com/Azure/go-ntlmssp v0.0.0-20220621081337-cb9428e4ac1e h1:NeAW1fUYUEWhft
 github.com/Azure/go-ntlmssp v0.0.0-20220621081337-cb9428e4ac1e/go.mod h1:chxPXzSsl7ZWRAuOIE23GDNzjWuZquvFlgA8xmpunjU=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
-github.com/Keyfactor/ejbca-go-client-sdk v0.1.4 h1:AE9HI/JuGmrZW1MQ1Sk4c2PKbpcondjUjpo02kKH4n4=
-github.com/Keyfactor/ejbca-go-client-sdk v0.1.4/go.mod h1:12uc/cynQy/GEiYnYJgivFjRGpyusPvIu/vLYAscejs=
+github.com/Keyfactor/ejbca-go-client-sdk v0.1.5 h1:PLX7NH6q26XyxIA7TQfZbKJawsXLZ+6yYs9pBYHsZrU=
+github.com/Keyfactor/ejbca-go-client-sdk v0.1.5/go.mod h1:12uc/cynQy/GEiYnYJgivFjRGpyusPvIu/vLYAscejs=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=

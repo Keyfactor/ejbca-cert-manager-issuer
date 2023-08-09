@@ -70,7 +70,7 @@ func TestIssuerReconcile(t *testing.T) {
 					},
 				},
 			},
-			healthCheckerBuilder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte) (signer.HealthChecker, error) {
+			healthCheckerBuilder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte, map[string][]byte) (signer.HealthChecker, error) {
 				return &fakeHealthChecker{}, nil
 			},
 			expectedReadyConditionStatus: ejbcaissuer.ConditionTrue,
@@ -103,7 +103,7 @@ func TestIssuerReconcile(t *testing.T) {
 					},
 				},
 			},
-			healthCheckerBuilder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte) (signer.HealthChecker, error) {
+			healthCheckerBuilder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte, map[string][]byte) (signer.HealthChecker, error) {
 				return &fakeHealthChecker{}, nil
 			},
 			clusterResourceNamespace:     "kube-system",
@@ -180,7 +180,7 @@ func TestIssuerReconcile(t *testing.T) {
 					},
 				},
 			},
-			healthCheckerBuilder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte) (signer.HealthChecker, error) {
+			healthCheckerBuilder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte, map[string][]byte) (signer.HealthChecker, error) {
 				return nil, errors.New("simulated health checker builder error")
 			},
 			expectedError:                errHealthCheckerBuilder,
@@ -213,7 +213,7 @@ func TestIssuerReconcile(t *testing.T) {
 					},
 				},
 			},
-			healthCheckerBuilder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte) (signer.HealthChecker, error) {
+			healthCheckerBuilder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte, map[string][]byte) (signer.HealthChecker, error) {
 				return &fakeHealthChecker{errCheck: errors.New("simulated health check error")}, nil
 			},
 			expectedError:                errHealthCheckerCheck,

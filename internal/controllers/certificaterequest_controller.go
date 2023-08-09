@@ -205,17 +205,30 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, errIssuerNotReady
 	}
 
-	secretName := types.NamespacedName{
+	// Retrieve the auth secret
+	authSecretName := types.NamespacedName{
 		Name:      issuerSpec.EjbcaSecretName,
 		Namespace: secretNamespace,
 	}
 
-	var secret corev1.Secret
-	if err := r.Get(ctx, secretName, &secret); err != nil {
-		return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %v", errGetAuthSecret, secretName, err)
+	var authSecret corev1.Secret
+	if err := r.Get(ctx, authSecretName, &authSecret); err != nil {
+		return ctrl.Result{}, fmt.Errorf("%w, authSecret name: %s, reason: %v", errGetAuthSecret, authSecretName, err)
 	}
 
-	ejbcaSigner, err := r.SignerBuilder(ctx, issuerSpec, secret.Data)
+	// Retrieve the CA certificate secret
+	caSecretName := types.NamespacedName{
+		Name:      issuerSpec.CaSecretName,
+		Namespace: secretNamespace,
+	}
+
+	var caSecret corev1.Secret
+	if err := r.Get(ctx, caSecretName, &caSecret); err != nil {
+		// The caSecret is optional, so we can ignore the error if it is not found. Just log it.
+		log.Error(err, "Unable to retrieve the CA certificate secret. Assuming that remote server uses publicly trusted certificate. Ignoring.")
+	}
+
+	ejbcaSigner, err := r.SignerBuilder(ctx, issuerSpec, authSecret.Data, caSecret.Data)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("%w: %v", errSignerBuilder, err)
 	}

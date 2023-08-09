@@ -34,6 +34,13 @@ type IssuerSpec struct {
 	// is set as a flag on the controller component (and defaults to the
 	// namespace that the controller runs in).
 	EjbcaSecretName string `json:"ejbcaSecretName"`
+
+	// A reference to a Secret in the same namespace as the referent. If the
+	// referent is a ClusterIssuer, the reference instead refers to the resource
+	// with the given name in the configured 'cluster resource namespace', which
+	// is set as a flag on the controller component (and defaults to the
+	// namespace that the controller runs in).
+	CaSecretName string `json:"caSecretName"`
 }
 
 // IssuerStatus defines the observed state of Issuer

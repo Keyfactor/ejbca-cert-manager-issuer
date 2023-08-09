@@ -35,6 +35,13 @@ spec:
           spec:
             description: IssuerSpec defines the desired state of Issuer
             properties:
+              caSecretName:
+                description: A reference to a Secret in the same namespace as the
+                  referent. If the referent is a ClusterIssuer, the reference instead
+                  refers to the resource with the given name in the configured 'cluster
+                  resource namespace', which is set as a flag on the controller component
+                  (and defaults to the namespace that the controller runs in).
+                type: string
               certificateAuthorityName:
                 type: string
               certificateProfileName:
@@ -52,6 +59,7 @@ spec:
                 description: Hostname is the hostname of the EJBCA server
                 type: string
             required:
+            - caSecretName
             - certificateAuthorityName
             - certificateProfileName
             - ejbcaSecretName

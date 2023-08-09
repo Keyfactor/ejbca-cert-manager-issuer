@@ -118,12 +118,24 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 		return ctrl.Result{}, nil
 	}
 
-	var secret corev1.Secret
-	if err := r.Get(ctx, secretName, &secret); err != nil {
+	var authSecret corev1.Secret
+	if err := r.Get(ctx, secretName, &authSecret); err != nil {
 		return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %v", errGetAuthSecret, secretName, err)
 	}
 
-	checker, err := r.HealthCheckerBuilder(ctx, issuerSpec, secret.Data)
+	// Retrieve the CA certificate secret
+	caSecretName := types.NamespacedName{
+		Name:      issuerSpec.CaSecretName,
+		Namespace: secretName.Namespace,
+	}
+
+	var caSecret corev1.Secret
+	if err := r.Get(ctx, caSecretName, &caSecret); err != nil {
+		// The caSecret is optional, so we can ignore the error if it is not found. Just log it.
+		log.Error(err, "Unable to retrieve the CA certificate secret. Assuming that remote server uses publicly trusted certificate. Ignoring.")
+	}
+
+	checker, err := r.HealthCheckerBuilder(ctx, issuerSpec, authSecret.Data, caSecret.Data)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("%w: %v", errHealthCheckerBuilder, err)
 	}

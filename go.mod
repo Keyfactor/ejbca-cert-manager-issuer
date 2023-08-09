@@ -3,7 +3,7 @@ module github.com/Keyfactor/ejbca-issuer
 go 1.19
 
 require (
-	github.com/Keyfactor/ejbca-go-client-sdk v0.1.4
+	github.com/Keyfactor/ejbca-go-client-sdk v0.1.5
 	github.com/cert-manager/cert-manager v1.11.0
 	github.com/go-logr/logr v1.2.3
 	github.com/onsi/ginkgo/v2 v2.6.1

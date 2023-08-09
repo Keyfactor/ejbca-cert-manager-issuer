@@ -43,18 +43,17 @@ type HealthChecker interface {
 	Check() error
 }
 
-type HealthCheckerBuilder func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte) (HealthChecker, error)
+type HealthCheckerBuilder func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte, map[string][]byte) (HealthChecker, error)
+type EjbcaSignerBuilder func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte, map[string][]byte) (Signer, error)
 
 type Signer interface {
 	Sign(context.Context, []byte) ([]byte, error)
 }
 
-type EjbcaSignerBuilder func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte) (Signer, error)
-
-func EjbcaHealthCheckerFromIssuerAndSecretData(ctx context.Context, spec *ejbcaissuer.IssuerSpec, secretData map[string][]byte) (HealthChecker, error) {
+func EjbcaHealthCheckerFromIssuerAndSecretData(ctx context.Context, spec *ejbcaissuer.IssuerSpec, clientCertSecretData map[string][]byte, caCertSecretData map[string][]byte) (HealthChecker, error) {
 	signer := ejbcaSigner{}
 
-	client, err := createClientFromSecretMap(ctx, spec.Hostname, secretData)
+	client, err := createClientFromSecretMap(ctx, spec.Hostname, clientCertSecretData, caCertSecretData)
 	if err != nil {
 		return nil, err
 	}
@@ -64,11 +63,11 @@ func EjbcaHealthCheckerFromIssuerAndSecretData(ctx context.Context, spec *ejbcai
 	return &signer, nil
 }
 
-func EjbcaSignerFromIssuerAndSecretData(ctx context.Context, spec *ejbcaissuer.IssuerSpec, secretData map[string][]byte) (Signer, error) {
+func EjbcaSignerFromIssuerAndSecretData(ctx context.Context, spec *ejbcaissuer.IssuerSpec, clientCertSecretData map[string][]byte, caCertSecretData map[string][]byte) (Signer, error) {
 	signer := ejbcaSigner{}
 	// secretData contains data from a K8s TLS secret object
 
-	client, err := createClientFromSecretMap(ctx, spec.Hostname, secretData)
+	client, err := createClientFromSecretMap(ctx, spec.Hostname, clientCertSecretData, caCertSecretData)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +139,8 @@ func (s *ejbcaSigner) Sign(ctx context.Context, csrBytes []byte) ([]byte, error)
 	if err != nil {
 		detail := fmt.Sprintf("error enrolling certificate with EJBCA. verify that the certificate profile name, end entity profile name, and certificate authority name are appropriate for the certificate request.")
 
-		bodyError, ok := err.(*ejbca.GenericOpenAPIError)
+		var bodyError *ejbca.GenericOpenAPIError
+		ok := errors.As(err, &bodyError)
 		if ok {
 			detail += fmt.Sprintf(" - %s", string(bodyError.Body()))
 		}
@@ -162,7 +162,7 @@ func (s *ejbcaSigner) Sign(ctx context.Context, csrBytes []byte) ([]byte, error)
 	return compileCertificatesToPemBytes(certAndChain)
 }
 
-func createClientFromSecretMap(ctx context.Context, hostname string, secretData map[string][]byte) (*ejbca.APIClient, error) {
+func createClientFromSecretMap(ctx context.Context, hostname string, clientCertSecretData map[string][]byte, caCertSecretData map[string][]byte) (*ejbca.APIClient, error) {
 	var err error
 	k8sLog := log.FromContext(ctx)
 
@@ -173,7 +173,7 @@ func createClientFromSecretMap(ctx context.Context, hostname string, secretData 
 		ejbcaConfig.Host = hostname
 	}
 
-	clientCertByte, ok := secretData["tls.crt"]
+	clientCertByte, ok := clientCertSecretData["tls.crt"]
 	if !ok || len(clientCertByte) == 0 {
 		return nil, errors.New("tls.crt not found in secret data")
 	}
@@ -201,7 +201,7 @@ func createClientFromSecretMap(ctx context.Context, hostname string, secretData 
 	}
 
 	if !clientCertContainsKey {
-		clientKeyBytes, ok := secretData["tls.key"]
+		clientKeyBytes, ok := clientCertSecretData["tls.key"]
 		if !ok || len(clientKeyBytes) == 0 {
 			return nil, errors.New("tls.pem not found in secret data")
 		}
@@ -231,6 +231,31 @@ func createClientFromSecretMap(ctx context.Context, hostname string, secretData 
 
 	// Add the TLS certificate to the EJBCA configuration
 	ejbcaConfig.SetClientCertificate(&tlsCert)
+
+	// If the CA certificate is provided, add it to the EJBCA configuration
+	if caCertSecretData != nil && len(caCertSecretData) > 0 {
+		// There is no requirement that the CA certificate is stored under a specific key in the secret, so we can just iterate over the map
+		var caCertBytes []byte
+		for _, caCertBytes = range caCertSecretData {
+		}
+
+		// Try to decode caCertBytes as a PEM formatted block
+		caChainBlocks, _ := decodePEMBytes(caCertBytes)
+		if caChainBlocks != nil {
+			var caChain []*x509.Certificate
+			for _, block := range caChainBlocks {
+				// Parse the PEM block into an x509 certificate
+				cert, err := x509.ParseCertificate(block.Bytes)
+				if err != nil {
+					return nil, err
+				}
+
+				caChain = append(caChain, cert)
+			}
+
+			ejbcaConfig.SetCaCertificates(caChain)
+		}
+	}
 
 	// Create EJBCA API Client
 	client, err := ejbca.NewAPIClient(ejbcaConfig)
