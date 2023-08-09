@@ -223,9 +223,12 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	var caSecret corev1.Secret
-	if err := r.Get(ctx, caSecretName, &caSecret); err != nil {
-		// The caSecret is optional, so we can ignore the error if it is not found. Just log it.
-		log.Error(err, "Unable to retrieve the CA certificate secret. Assuming that remote server uses publicly trusted certificate. Ignoring.")
+	if issuerSpec.CaSecretName != "" {
+		// If the CA secret name is not specified, we will not attempt to retrieve it
+		err = r.Get(ctx, caSecretName, &caSecret)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %v", errGetCaSecret, caSecretName, err)
+		}
 	}
 
 	ejbcaSigner, err := r.SignerBuilder(ctx, issuerSpec, authSecret.Data, caSecret.Data)

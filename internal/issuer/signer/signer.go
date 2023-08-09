@@ -263,8 +263,6 @@ func createClientFromSecretMap(ctx context.Context, hostname string, clientCertS
 		return nil, err
 	}
 
-	k8sLog.Info(fmt.Sprintf("Successfully created EJBCA API client."))
-
 	return client, nil
 }
 

@@ -39,7 +39,8 @@ const (
 )
 
 var (
-	errGetAuthSecret        = errors.New("failed to get Secret containing Issuer credentials")
+	errGetAuthSecret        = errors.New("failed to get Secret containing credentials")
+	errGetCaSecret          = errors.New("caSecretName specified a name, but failed to get Secret containing CA certificate")
 	errHealthCheckerBuilder = errors.New("failed to build the healthchecker")
 	errHealthCheckerCheck   = errors.New("healthcheck failed")
 )
@@ -130,9 +131,12 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	}
 
 	var caSecret corev1.Secret
-	if err := r.Get(ctx, caSecretName, &caSecret); err != nil {
-		// The caSecret is optional, so we can ignore the error if it is not found. Just log it.
-		log.Error(err, "Unable to retrieve the CA certificate secret. Assuming that remote server uses publicly trusted certificate. Ignoring.")
+	if issuerSpec.CaSecretName != "" {
+		// If the CA secret name is not specified, we will not attempt to retrieve it
+		err = r.Get(ctx, caSecretName, &caSecret)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %v", errGetCaSecret, caSecretName, err)
+		}
 	}
 
 	checker, err := r.HealthCheckerBuilder(ctx, issuerSpec, authSecret.Data, caSecret.Data)
