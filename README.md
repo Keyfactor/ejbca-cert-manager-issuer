@@ -135,6 +135,12 @@ kubectl -n ejbca-issuer-system apply -f issuer.yaml
 kubectl -n ejbca-issuer-system apply -f clusterissuer.yaml
 ```
 
+To verify that Issuer and ClusterIssuer resources were created successfully, run the following commands:
+```shell
+kubectl -n ejbca-issuer-system get issuers.ejbca-issuer.keyfactor.com
+kubectl -n ejbca-issuer-system get clusterissuers.ejbca-issuer.keyfactor.com
+```
+
 ### Using Issuer and ClusterIssuer resources
 Once the Issuer and ClusterIssuer resources are created, they can be used to issue certificates using cert-manager.
 The two most important concepts are `Certificate` and `CertificateRequest` resources. `Certificate`
@@ -186,9 +192,39 @@ of approving a CertificateRequest resource named `ejbca-certificate` in the `ejb
 cmctl -n ejbca-issuer-system approve ejbca-certificate
 ```
 
+Once a certificate request has been approved, the certificate will be issued and stored in the secret specified in the
+CertificateRequest resource. The following is an example of retrieving the certificate from the secret.
+```shell
+kubectl get secret ejbca-certificate -n ejbca-issuer-system -o jsonpath='{.data.tls\.crt}' | base64 -d
+```
+
 ###### To learn more about certificate approval and RBAC configuration, see the [cert-manager documentation](https://cert-manager.io/docs/concepts/certificaterequest/#approval).
 
 ## Cleanup
+To list the certificates and certificate requests created, run the following commands:
+```shell
+kubectl get certificates -n ejbca-issuer-system
+kubectl get certificaterequests -n ejbca-issuer-system
+```
+
+To remove the certificate and certificate request resources, run the following commands:
+```shell
+kubectl delete certificate ejbca-certificate -n ejbca-issuer-system
+kubectl delete certificaterequest ejbca-certificate -n ejbca-issuer-system
+```
+
+To list the issuer and cluster issuer resources created, run the following commands:
+```shell
+kubectl -n ejbca-issuer-system get issuers.ejbca-issuer.keyfactor.com
+kubectl -n ejbca-issuer-system get clusterissuers.ejbca-issuer.keyfactor.com
+```
+
+To remove the issuer and cluster issuer resources, run the following commands:
+```shell
+kubectl -n ejbca-issuer-system delete issuers.ejbca-issuer.keyfactor.com <issuer-name>
+kubectl -n ejbca-issuer-system delete clusterissuers.ejbca-issuer.keyfactor.com <issuer-name>
+```
+
 To remove the controller from the cluster, run:
 ```shell
 make undeploy
