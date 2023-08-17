@@ -26,7 +26,7 @@ The EJBCA Issuer for cert-manager requires the following API endpoints:
 ## Quick Start
 
 The quick start guide will walk you through the process of installing the cert-manager external issuer for Keyfactor EJBCA.
-The controller image is pulled from [Docker Hub](https://hub.docker.com/r/m8rmclarenkf/ejbca-external-issuer). 
+The controller image is pulled from [Docker Hub](https://hub.docker.com/r/m8rmclarenkf/command-external-issuer). 
 
 ###### To build  the container from sources, refer to the [Building Container Image from Source](#building-container-image-from-source) section.
 
@@ -107,11 +107,11 @@ metadata:
   name: issuer-sample
 spec:
   hostname: ""
-  ejbcaSecretName: ""
+  ejbcaBundleSecretName: ""
   certificateAuthorityName: ""
   certificateProfileName: ""
   endEntityProfileName: ""
-  caSecretName: ""
+  caBundleSecretName: ""
 ```
 
 The following is an example of a ClusterIssuer resource:
@@ -127,11 +127,11 @@ metadata:
   name: clusterissuer-sample
 spec:
   hostname: ""
-  ejbcaSecretName: ""
+  ejbcaBundleSecretName: ""
   certificateAuthorityName: ""
   certificateProfileName: ""
   endEntityProfileName: ""
-  caSecretName: ""
+  caBundleSecretName: ""
 ```
 
 To create new resources from the above examples, replace the empty strings with the appropriate values and apply the resources to the cluster:

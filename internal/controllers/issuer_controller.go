@@ -126,12 +126,12 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 
 	// Retrieve the CA certificate secret
 	caSecretName := types.NamespacedName{
-		Name:      issuerSpec.CaSecretName,
+		Name:      issuerSpec.CaBundleSecretName,
 		Namespace: secretName.Namespace,
 	}
 
 	var caSecret corev1.Secret
-	if issuerSpec.CaSecretName != "" {
+	if issuerSpec.CaBundleSecretName != "" {
 		// If the CA secret name is not specified, we will not attempt to retrieve it
 		err = r.Get(ctx, caSecretName, &caSecret)
 		if err != nil {
