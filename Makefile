@@ -1,9 +1,9 @@
 # The version which will be reported by the --version argument of each binary
 # and which will be used as the Docker image tag
-VERSION ?= $(shell git describe --tags)
+VERSION ?= v1.2.1
 # The Docker repository name, overridden in CI.
 DOCKER_REGISTRY ?= m8rmclarenkf
-DOCKER_IMAGE_NAME ?= ejbca-external-issuer
+DOCKER_IMAGE_NAME ?= ejbca-cert-manager-external-issuer-controller
 # Image URL to use all building/pushing image targets
 IMG ?= ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${VERSION}
 #IMG ?= ejbca-issuer-dev:latest
