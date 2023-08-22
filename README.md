@@ -90,7 +90,7 @@ The `spec` field of both the Issuer and ClusterIssuer resources use the followin
 * `certificateAuthorityName` - The name of the EJBCA certificate authority to use. For example, `ManagementCA`
 * `certificateProfileName` - The name of the EJBCA certificate profile to use. For example, `ENDUSER`
 * `endEntityProfileName` - The name of the EJBCA end entity profile to use. For example, `ENDUSER`
-* `caSecretName` - The name of the Kubernetes secret containing the CA certificate. This field is optional and only required if the EJBCA API is configured to use a self-signed certificate or with a certificate signed by an untrusted root.
+* `caBundleSecretName` - The name of the Kubernetes secret containing the CA certificate. This field is optional and only required if the EJBCA API is configured to use a self-signed certificate or with a certificate signed by an untrusted root.
 
 ###### If a different combination of hostname/certificate authority/certificate profile/end entity profile is required, a new Issuer or ClusterIssuer resource must be created. Each resource instantiation represents a single configuration.
 
