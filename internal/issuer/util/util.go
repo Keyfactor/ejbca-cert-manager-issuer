@@ -17,7 +17,9 @@ limitations under the License.
 package util
 
 import (
+	"context"
 	"fmt"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,18 +27,20 @@ import (
 	ejbcaissuer "github.com/Keyfactor/ejbca-issuer/api/v1alpha1"
 )
 
-func GetSpecAndStatus(issuer client.Object) (*ejbcaissuer.IssuerSpec, *ejbcaissuer.IssuerStatus, error) {
+func GetSpecAndStatus(issuer client.Object) (string, *ejbcaissuer.IssuerSpec, *ejbcaissuer.IssuerStatus, error) {
 	switch t := issuer.(type) {
 	case *ejbcaissuer.Issuer:
-		return &t.Spec, &t.Status, nil
+		return t.GetName(), &t.Spec, &t.Status, nil
 	case *ejbcaissuer.ClusterIssuer:
-		return &t.Spec, &t.Status, nil
+		return t.GetName(), &t.Spec, &t.Status, nil
 	default:
-		return nil, nil, fmt.Errorf("not an issuer type: %t", t)
+		return "", nil, nil, fmt.Errorf("not an issuer type: %t", t)
 	}
 }
 
-func SetReadyCondition(status *ejbcaissuer.IssuerStatus, conditionStatus ejbcaissuer.ConditionStatus, reason, message string) {
+func SetReadyCondition(ctx context.Context, name, kind string, status *ejbcaissuer.IssuerStatus, conditionStatus ejbcaissuer.ConditionStatus, reason, message string) {
+	log := ctrl.LoggerFrom(ctx)
+
 	ready := GetReadyCondition(status)
 	if ready == nil {
 		ready = &ejbcaissuer.IssuerCondition{
@@ -45,6 +49,8 @@ func SetReadyCondition(status *ejbcaissuer.IssuerStatus, conditionStatus ejbcais
 		status.Conditions = append(status.Conditions, *ready)
 	}
 	if ready.Status != conditionStatus {
+		log.Info(fmt.Sprintf("Found status change for %s %q: %q -> %q; %q", kind, name, ready.Status, conditionStatus, message))
+
 		ready.Status = conditionStatus
 		now := metav1.Now()
 		ready.LastTransitionTime = &now

@@ -273,7 +273,7 @@ func TestIssuerReconcile(t *testing.T) {
 				issuer, err := controller.newIssuer()
 				require.NoError(t, err)
 				require.NoError(t, fakeClient.Get(context.TODO(), tc.name, issuer))
-				_, issuerStatus, err := issuerutil.GetSpecAndStatus(issuer)
+				_, _, issuerStatus, err := issuerutil.GetSpecAndStatus(issuer)
 				require.NoError(t, err)
 				assertIssuerHasReadyCondition(t, tc.expectedReadyConditionStatus, issuerStatus)
 			}
