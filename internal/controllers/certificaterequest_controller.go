@@ -194,7 +194,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, fmt.Errorf("%w: %v", errGetIssuer, err)
 	}
 
-	issuerSpec, issuerStatus, err := issuerutil.GetSpecAndStatus(issuer)
+	_, issuerSpec, issuerStatus, err := issuerutil.GetSpecAndStatus(issuer)
 	if err != nil {
 		log.Error(err, "Unable to get the IssuerStatus. Ignoring.")
 		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, err.Error())

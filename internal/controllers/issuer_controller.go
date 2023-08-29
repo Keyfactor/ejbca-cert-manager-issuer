@@ -83,7 +83,7 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 		return ctrl.Result{}, nil
 	}
 
-	issuerSpec, issuerStatus, err := issuerutil.GetSpecAndStatus(issuer)
+	name, issuerSpec, issuerStatus, err := issuerutil.GetSpecAndStatus(issuer)
 	if err != nil {
 		log.Error(err, "Unexpected error while getting issuer spec and status. Not retrying.")
 		return ctrl.Result{}, nil
@@ -92,7 +92,7 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	// Always attempt to update the Ready condition
 	defer func() {
 		if err != nil {
-			issuerutil.SetReadyCondition(issuerStatus, ejbcaissuer.ConditionFalse, issuerReadyConditionReason, err.Error())
+			issuerutil.SetReadyCondition(ctx, name, r.Kind, issuerStatus, ejbcaissuer.ConditionFalse, issuerReadyConditionReason, err.Error())
 		}
 		if updateErr := r.Status().Update(ctx, issuer); updateErr != nil {
 			err = utilerrors.NewAggregate([]error{err, updateErr})
@@ -101,7 +101,7 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	}()
 
 	if ready := issuerutil.GetReadyCondition(issuerStatus); ready == nil {
-		issuerutil.SetReadyCondition(issuerStatus, ejbcaissuer.ConditionUnknown, issuerReadyConditionReason, "First seen")
+		issuerutil.SetReadyCondition(ctx, name, r.Kind, issuerStatus, ejbcaissuer.ConditionUnknown, issuerReadyConditionReason, "First seen")
 		return ctrl.Result{}, nil
 	}
 
@@ -148,7 +148,7 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 		return ctrl.Result{}, fmt.Errorf("%w: %v", errHealthCheckerCheck, err)
 	}
 
-	issuerutil.SetReadyCondition(issuerStatus, ejbcaissuer.ConditionTrue, issuerReadyConditionReason, "Success")
+	issuerutil.SetReadyCondition(ctx, name, r.Kind, issuerStatus, ejbcaissuer.ConditionTrue, issuerReadyConditionReason, "Success")
 	return ctrl.Result{RequeueAfter: defaultHealthCheckInterval}, nil
 }
 
