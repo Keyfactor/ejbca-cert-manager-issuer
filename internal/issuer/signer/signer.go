@@ -33,10 +33,12 @@ import (
 )
 
 type ejbcaSigner struct {
-	client                   *ejbca.APIClient
-	certificateProfileName   string
-	endEntityProfileName     string
-	certificateAuthorityName string
+	client                     *ejbca.APIClient
+	certificateProfileName     string
+	endEntityProfileName       string
+	certificateAuthorityName   string
+	endEntityName              string
+	certManagerCertificateName string
 }
 
 type HealthChecker interface {
@@ -44,7 +46,7 @@ type HealthChecker interface {
 }
 
 type HealthCheckerBuilder func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte, map[string][]byte) (HealthChecker, error)
-type EjbcaSignerBuilder func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte, map[string][]byte) (Signer, error)
+type EjbcaSignerBuilder func(context.Context, *ejbcaissuer.IssuerSpec, map[string]string, map[string][]byte, map[string][]byte) (Signer, error)
 
 type Signer interface {
 	Sign(context.Context, []byte) ([]byte, error)
@@ -63,7 +65,8 @@ func EjbcaHealthCheckerFromIssuerAndSecretData(ctx context.Context, spec *ejbcai
 	return &signer, nil
 }
 
-func EjbcaSignerFromIssuerAndSecretData(ctx context.Context, spec *ejbcaissuer.IssuerSpec, clientCertSecretData map[string][]byte, caCertSecretData map[string][]byte) (Signer, error) {
+func ejbcaSignerFromIssuerAndSecretData(ctx context.Context, spec *ejbcaissuer.IssuerSpec, annotations map[string]string, clientCertSecretData map[string][]byte, caCertSecretData map[string][]byte) (*ejbcaSigner, error) {
+	signLog := log.FromContext(ctx)
 	signer := ejbcaSigner{}
 	// secretData contains data from a K8s TLS secret object
 
@@ -83,11 +86,38 @@ func EjbcaSignerFromIssuerAndSecretData(ctx context.Context, spec *ejbcaissuer.I
 	if spec.CertificateAuthorityName == "" {
 		return nil, errors.New("certificateAuthorityName not found in secret data")
 	}
+
+	// Assign defaults from issuer spec
 	signer.certificateProfileName = spec.CertificateProfileName
 	signer.endEntityProfileName = spec.EndEntityProfileName
 	signer.certificateAuthorityName = spec.CertificateAuthorityName
+	signer.endEntityName = spec.EndEntityName
+
+	// Override defaults from annotations
+	if value, exists := annotations["ejbca-issuer.keyfactor.com/certificateAuthorityName"]; exists {
+		signer.certificateAuthorityName = value
+	}
+	if value, exists := annotations["ejbca-issuer.keyfactor.com/certificateProfileName"]; exists {
+		signer.certificateProfileName = value
+	}
+	if value, exists := annotations["ejbca-issuer.keyfactor.com/endEntityName"]; exists {
+		signer.endEntityName = value
+	}
+	if value, exists := annotations["ejbca-issuer.keyfactor.com/endEntityProfileName"]; exists {
+		signer.endEntityProfileName = value
+	}
+
+	if value, exists := annotations["cert-manager.io/certificate-name"]; exists {
+		signer.certManagerCertificateName = value
+	}
+
+	signLog.Info(fmt.Sprintf("Signer configured with certificate profile name \"%s\", end entity profile name \"%s\", and certificate authority name \"%s\"", signer.certificateProfileName, signer.endEntityProfileName, signer.certificateAuthorityName))
 
 	return &signer, nil
+}
+
+func EjbcaSignerFromIssuerAndSecretData(ctx context.Context, spec *ejbcaissuer.IssuerSpec, annotations map[string]string, clientCertSecretData map[string][]byte, caCertSecretData map[string][]byte) (Signer, error) {
+	return ejbcaSignerFromIssuerAndSecretData(ctx, spec, annotations, clientCertSecretData, caCertSecretData)
 }
 
 func (s *ejbcaSigner) Check() error {
@@ -100,6 +130,68 @@ func (s *ejbcaSigner) Check() error {
 	return nil
 }
 
+func (s *ejbcaSigner) getEndEntityName(ctx context.Context, csr *x509.CertificateRequest) string {
+	eeLog := log.FromContext(ctx)
+	eeName := ""
+	// 1. If the endEntityName option is set, determine the end entity name based on the option
+	// 2. If the endEntityName option is not set, determine the end entity name based on the CSR
+
+	// cn: Use the CommonName from the CertificateRequest's DN
+	if s.endEntityName == "cn" || s.endEntityName == "" {
+		if csr.Subject.CommonName != "" {
+			eeName = csr.Subject.CommonName
+			eeLog.Info(fmt.Sprintf("Using CommonName from the CertificateRequest's DN as the EJBCA end entity name: %q", eeName))
+			return eeName
+		}
+	}
+
+	//* dns: Use the first DNSName from the CertificateRequest's DNSNames SANs
+	if s.endEntityName == "dns" || s.endEntityName == "" {
+		if len(csr.DNSNames) > 0 && csr.DNSNames[0] != "" {
+			eeName = csr.DNSNames[0]
+			eeLog.Info(fmt.Sprintf("Using the first DNSName from the CertificateRequest's DNSNames SANs as the EJBCA end entity name: %q", eeName))
+			return eeName
+		}
+	}
+
+	//* uri: Use the first URI from the CertificateRequest's URI Sans
+	if s.endEntityName == "uri" || s.endEntityName == "" {
+		if len(csr.URIs) > 0 {
+			eeName = csr.URIs[0].String()
+			eeLog.Info(fmt.Sprintf("Using the first URI from the CertificateRequest's URI Sans as the EJBCA end entity name: %q", eeName))
+			return eeName
+		}
+	}
+
+	//* ip: Use the first IPAddress from the CertificateRequest's IPAddresses SANs
+	if s.endEntityName == "ip" || s.endEntityName == "" {
+		if len(csr.IPAddresses) > 0 {
+			eeName = csr.IPAddresses[0].String()
+			eeLog.Info(fmt.Sprintf("Using the first IPAddress from the CertificateRequest's IPAddresses SANs as the EJBCA end entity name: %q", eeName))
+			return eeName
+		}
+	}
+
+	//* certificateName: Use the value of the CertificateRequest's certificateName annotation
+	if s.endEntityName == "certificateName" || s.endEntityName == "" {
+		eeName = s.certManagerCertificateName
+		eeLog.Info(fmt.Sprintf("Using the name of the cert-manager.io/Certificate object as the EJBCA end entity name: %q", eeName))
+		return eeName
+	}
+
+	// End of defaults; if the endEntityName option is set to anything but cn, dns, or uri, use the option as the end entity name
+	if s.endEntityName != "" && s.endEntityName != "cn" && s.endEntityName != "dns" && s.endEntityName != "uri" && s.endEntityName != "certificateName" {
+		eeName = s.endEntityName
+		eeLog.Info(fmt.Sprintf("Using the endEntityName option as the EJBCA end entity name: %q", eeName))
+		return eeName
+	}
+
+	// If we get here, we were unable to determine the end entity name
+	eeLog.Error(fmt.Errorf("unsuccessfully determined end entity name"), fmt.Sprintf("the endEntityName option is set to %q, but no valid end entity name could be determined from the CertificateRequest", s.endEntityName))
+
+	return eeName
+}
+
 func (s *ejbcaSigner) Sign(ctx context.Context, csrBytes []byte) ([]byte, error) {
 	k8sLog := log.FromContext(ctx)
 
@@ -109,17 +201,15 @@ func (s *ejbcaSigner) Sign(ctx context.Context, csrBytes []byte) ([]byte, error)
 	}
 
 	// Log the common metadata of the CSR
-	k8sLog.Info(fmt.Sprintf("Found CSR wtih Common Name \"%s\" and %d DNS SANs, %d IP SANs, and %d URI SANs", csr.Subject.CommonName, len(csr.DNSNames), len(csr.IPAddresses), len(csr.URIs)))
+	k8sLog.Info(fmt.Sprintf("Found CSR wtih DN %q and %d DNS SANs, %d IP SANs, and %d URI SANs", csr.Subject, len(csr.DNSNames), len(csr.IPAddresses), len(csr.URIs)))
 
 	// If the CSR has a CommonName, use it as the EJBCA end entity name
-	var ejbcaEeName string
-	if csr.Subject.CommonName != "" {
-		ejbcaEeName = csr.Subject.CommonName
-	} else {
-		ejbcaEeName = csr.Subject.SerialNumber
+	ejbcaEeName := s.getEndEntityName(ctx, csr)
+	if ejbcaEeName == "" {
+		return nil, errors.New("failed to determine the EJBCA end entity name")
 	}
 
-	k8sLog.Info(fmt.Sprintf("Using or Creating EJBCA End Entity called \"%s\"", ejbcaEeName))
+	k8sLog.Info(fmt.Sprintf("Using or Creating EJBCA End Entity called %q", ejbcaEeName))
 
 	// Configure EJBCA PKCS#10 request
 	enroll := ejbca.EnrollCertificateRestRequest{
@@ -132,7 +222,7 @@ func (s *ejbcaSigner) Sign(ctx context.Context, csrBytes []byte) ([]byte, error)
 		IncludeChain:             ptr(true),
 	}
 
-	k8sLog.Info(fmt.Sprintf("Enrolling certificate with EJBCA with certificate profile name \"%s\", end entity profile name \"%s\", and certificate authority name \"%s\"", s.certificateProfileName, s.endEntityProfileName, s.certificateAuthorityName))
+	k8sLog.Info(fmt.Sprintf("Enrolling certificate with EJBCA with certificate profile name %q, end entity profile name \"%s\", and certificate authority name \"%s\"", s.certificateProfileName, s.endEntityProfileName, s.certificateAuthorityName))
 
 	// Enroll certificate
 	certificateObject, _, err := s.client.V1CertificateApi.EnrollPkcs10Certificate(context.Background()).EnrollCertificateRestRequest(enroll).Execute()
