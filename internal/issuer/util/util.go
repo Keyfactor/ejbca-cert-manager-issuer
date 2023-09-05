@@ -19,6 +19,9 @@ package util
 import (
 	"context"
 	"fmt"
+	cmutil "github.com/cert-manager/cert-manager/pkg/api/util"
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,18 +30,56 @@ import (
 	ejbcaissuer "github.com/Keyfactor/ejbca-issuer/api/v1alpha1"
 )
 
-func GetSpecAndStatus(issuer client.Object) (string, *ejbcaissuer.IssuerSpec, *ejbcaissuer.IssuerStatus, error) {
+func GetCertificateRequestAnnotations(issuer client.Object) (map[string]string, error) {
 	switch t := issuer.(type) {
 	case *ejbcaissuer.Issuer:
-		return t.GetName(), &t.Spec, &t.Status, nil
+		return t.GetAnnotations(), nil
 	case *ejbcaissuer.ClusterIssuer:
-		return t.GetName(), &t.Spec, &t.Status, nil
+		return t.GetAnnotations(), nil
 	default:
-		return "", nil, nil, fmt.Errorf("not an issuer type: %t", t)
+		return nil, fmt.Errorf("not an issuer type: %t", t)
 	}
 }
 
-func SetReadyCondition(ctx context.Context, name, kind string, status *ejbcaissuer.IssuerStatus, conditionStatus ejbcaissuer.ConditionStatus, reason, message string) {
+func GetName(issuer client.Object) (string, error) {
+	switch t := issuer.(type) {
+	case *ejbcaissuer.Issuer:
+		return t.GetName(), nil
+	case *ejbcaissuer.ClusterIssuer:
+		return t.GetName(), nil
+	default:
+		return "", fmt.Errorf("not an issuer type: %t", t)
+	}
+}
+
+func GetSpecAndStatus(issuer client.Object) (*ejbcaissuer.IssuerSpec, *ejbcaissuer.IssuerStatus, error) {
+	switch t := issuer.(type) {
+	case *ejbcaissuer.Issuer:
+		return &t.Spec, &t.Status, nil
+	case *ejbcaissuer.ClusterIssuer:
+		return &t.Spec, &t.Status, nil
+	default:
+		return nil, nil, fmt.Errorf("not an issuer type: %t", t)
+	}
+}
+
+func SetCertificateRequestReadyCondition(ctx context.Context, csr *cmapi.CertificateRequest, status cmmeta.ConditionStatus, reason, message string) {
+	log := ctrl.LoggerFrom(ctx)
+
+	if len(csr.Status.Conditions) > 0 && csr.Status.Conditions[0].Status != status {
+		log.Info(fmt.Sprintf("Found status change for CertificateRequest %q: %q -> %q; Reason: %q Message: %q", csr.Name, csr.Status.Conditions[0].Status, status, reason, message))
+	}
+
+	cmutil.SetCertificateRequestCondition(
+		csr,
+		cmapi.CertificateRequestConditionReady,
+		status,
+		reason,
+		message,
+	)
+}
+
+func SetIssuerReadyCondition(ctx context.Context, name, kind string, status *ejbcaissuer.IssuerStatus, conditionStatus ejbcaissuer.ConditionStatus, reason, message string) {
 	log := ctrl.LoggerFrom(ctx)
 
 	ready := GetReadyCondition(status)

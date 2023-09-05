@@ -124,11 +124,9 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 # Build the manager image for local development. This image is not intended to be used in production.
 # Then, install it into the K8s cluster
 .PHONY: deploy-local
-deploy-local: ## Build docker image with the manager.
-	docker build -t ejbca-issuer-dev:latest -f Dockerfile.local .
-	make manifests
-	make kustomize
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+deploy-local: manifests kustomize ## Build docker image with the manager.
+	docker build -t ejbca-issuer-dev:latest -f Dockerfile .
+	cd config/manager && $(KUSTOMIZE) edit set image controller=ejbca-issuer-dev:latest
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 .PHONY: undeploy

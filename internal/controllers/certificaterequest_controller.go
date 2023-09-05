@@ -106,22 +106,10 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, nil
 	}
 
-	// We now have a CertificateRequest that belongs to us so we are responsible
-	// for updating its Ready condition.
-	setReadyCondition := func(status cmmeta.ConditionStatus, reason, message string) {
-		cmutil.SetCertificateRequestCondition(
-			&certificateRequest,
-			cmapi.CertificateRequestConditionReady,
-			status,
-			reason,
-			message,
-		)
-	}
-
 	// Always attempt to update the Ready condition
 	defer func() {
 		if err != nil {
-			setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, err.Error())
+			issuerutil.SetCertificateRequestReadyCondition(ctx, &certificateRequest, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, err.Error())
 		}
 		if updateErr := r.Status().Update(ctx, &certificateRequest); updateErr != nil {
 			err = utilerrors.NewAggregate([]error{err, updateErr})
@@ -140,7 +128,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 
 		message := "The CertificateRequest was denied by an approval controller"
-		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonDenied, message)
+		issuerutil.SetCertificateRequestReadyCondition(ctx, &certificateRequest, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonDenied, message)
 		return ctrl.Result{}, nil
 	}
 
@@ -155,7 +143,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Add a Ready condition if one does not already exist
 	if ready := cmutil.GetCertificateRequestCondition(&certificateRequest, cmapi.CertificateRequestConditionReady); ready == nil {
 		log.Info("Initialising Ready condition")
-		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Initialising")
+		issuerutil.SetCertificateRequestReadyCondition(ctx, &certificateRequest, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Initialising")
 		return ctrl.Result{}, nil
 	}
 
@@ -165,7 +153,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if err != nil {
 		err = fmt.Errorf("%w: %v", errIssuerRef, err)
 		log.Error(err, "Unrecognized kind. Ignoring.")
-		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, err.Error())
+		issuerutil.SetCertificateRequestReadyCondition(ctx, &certificateRequest, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, err.Error())
 		return ctrl.Result{}, nil
 	}
 	issuer := issuerRO.(client.Object)
@@ -185,7 +173,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	default:
 		err := fmt.Errorf("unexpected issuer type: %v", t)
 		log.Error(err, "The issuerRef referred to a registered Kind which is not yet handled. Ignoring.")
-		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, err.Error())
+		issuerutil.SetCertificateRequestReadyCondition(ctx, &certificateRequest, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, err.Error())
 		return ctrl.Result{}, nil
 	}
 
@@ -194,10 +182,10 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, fmt.Errorf("%w: %v", errGetIssuer, err)
 	}
 
-	_, issuerSpec, issuerStatus, err := issuerutil.GetSpecAndStatus(issuer)
+	issuerSpec, issuerStatus, err := issuerutil.GetSpecAndStatus(issuer)
 	if err != nil {
 		log.Error(err, "Unable to get the IssuerStatus. Ignoring.")
-		setReadyCondition(cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, err.Error())
+		issuerutil.SetCertificateRequestReadyCondition(ctx, &certificateRequest, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, err.Error())
 		return ctrl.Result{}, nil
 	}
 
@@ -231,7 +219,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}
 
-	ejbcaSigner, err := r.SignerBuilder(ctx, issuerSpec, authSecret.Data, caSecret.Data)
+	ejbcaSigner, err := r.SignerBuilder(ctx, issuerSpec, certificateRequest.GetAnnotations(), authSecret.Data, caSecret.Data)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("%w: %v", errSignerBuilder, err)
 	}
@@ -242,7 +230,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 	certificateRequest.Status.Certificate = signed
 
-	setReadyCondition(cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Signed")
+	issuerutil.SetCertificateRequestReadyCondition(ctx, &certificateRequest, cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Signed")
 	return ctrl.Result{}, nil
 }
 

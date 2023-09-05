@@ -91,6 +91,7 @@ The `spec` field of both the Issuer and ClusterIssuer resources use the followin
 * `certificateProfileName` - The name of the EJBCA certificate profile to use. For example, `ENDUSER`
 * `endEntityProfileName` - The name of the EJBCA end entity profile to use. For example, `ENDUSER`
 * `caBundleSecretName` - The name of the Kubernetes secret containing the CA certificate. This field is optional and only required if the EJBCA API is configured to use a self-signed certificate or with a certificate signed by an untrusted root.
+* `endEntityName` - The name of the end entity to use. This field is optional. More information on how the field is used can be found in the [EJBCA End Entity Name Configuration](#ejbca-end-entity-name-configuration) section.
 
 ###### If a different combination of hostname/certificate authority/certificate profile/end entity profile is required, a new Issuer or ClusterIssuer resource must be created. Each resource instantiation represents a single configuration.
 
@@ -112,6 +113,7 @@ spec:
   certificateProfileName: ""
   endEntityProfileName: ""
   caBundleSecretName: ""
+  endEntityName: ""
 ```
 
 The following is an example of a ClusterIssuer resource:
@@ -132,6 +134,7 @@ spec:
   certificateProfileName: ""
   endEntityProfileName: ""
   caBundleSecretName: ""
+  endEntityName: ""
 ```
 
 To create new resources from the above examples, replace the empty strings with the appropriate values and apply the resources to the cluster:
@@ -204,6 +207,76 @@ kubectl get secret ejbca-certificate -n ejbca-issuer-system -o jsonpath='{.data.
 ```
 
 ###### To learn more about certificate approval and RBAC configuration, see the [cert-manager documentation](https://cert-manager.io/docs/concepts/certificaterequest/#approval).
+
+## EJBCA End Entity Name Configuration
+The endEntityName field in the Issuer and ClusterIssuer resource spec allows you to configure how the End Entity Name is selected when issuing certificates through EJBCA. This field offers flexibility by allowing you to select different components from the Certificate Signing Request (CSR) or other contextual data as the End Entity Name.
+
+### Configurable Options
+Here are the different options you can set for endEntityName:
+
+* **`cn`:** Uses the Common Name from the CSR's Distinguished Name.
+* **`dns`:** Uses the first DNS Name from the CSR's Subject Alternative Names (SANs).
+* **`uri`:** Uses the first URI from the CSR's Subject Alternative Names (SANs).
+* **`ip`:** Uses the first IP Address from the CSR's Subject Alternative Names (SANs).
+* **`certificateName`:** Uses the name of the cert-manager.io/Certificate object.
+* **Custom Value:** Any other string will be directly used as the End Entity Name.
+
+### Default Behavior
+If the endEntityName field is not explicitly set, the EJBCA Issuer will attempt to determine the End Entity Name using the following default behavior:
+
+* **First, it will try to use the Common Name:** It looks at the Common Name from the CSR's Distinguished Name.
+* **If the Common Name is not available, it will use the first DNS Name:** It looks at the first DNS Name from the CSR's Subject Alternative Names (SANs).
+* **If the DNS Name is not available, it will use the first URI:** It looks at the first URI from the CSR's Subject Alternative Names (SANs).
+* **If the URI is not available, it will use the first IP Address:** It looks at the first IP Address from the CSR's Subject Alternative Names (SANs).
+* **If none of the above are available, it will use the name of the cert-manager.io/Certificate object:** It defaults to the name of the certificate object. 
+
+If the Issuer is unable to determine a valid End Entity Name through these steps, an error will be logged and no End Entity Name will be set.
+
+## Annotation Overrides for Issuer and ClusterIssuer Resources
+The Keyfactor EJBCA external issuer for cert-manager allows you to override default settings in the Issuer and ClusterIssuer resources through the use of annotations. This gives you more granular control on a per-Certificate/CertificateRequest basis.
+
+### Supported Annotations
+Here are the supported annotations that can override the default values:
+
+- **`ejbca-issuer.keyfactor.com/endEntityName`**: Overrides the `endEntityName` field from the resource spec. Allowed values include `"cn"`, `"dns"`, `"uri"`, `"ip"`, and `"certificateName"`, or any custom string.
+
+    ```yaml
+    ejbca-issuer.keyfactor.com/endEntityName: "dns"
+    ```
+
+- **`ejbca-issuer.keyfactor.com/certificateAuthorityName`**: Specifies the Certificate Authority (CA) name to use, overriding the default CA specified in the resource spec.
+
+    ```yaml
+    ejbca-issuer.keyfactor.com/certificateAuthorityName: "ManagementCA"
+    ```
+
+- **`ejbca-issuer.keyfactor.com/certificateProfileName`**: Specifies the Certificate Profile name to use, overriding the default profile specified in the resource spec.
+
+    ```yaml
+    ejbca-issuer.keyfactor.com/certificateProfileName: "tlsServerAuth"
+    ```
+
+- **`ejbca-issuer.keyfactor.com/endEntityProfileName`**: Specifies the End Entity Profile name to use, overriding the default profile specified in the resource spec.
+
+    ```yaml
+    ejbca-issuer.keyfactor.com/endEntityProfileName: "eep"
+    ```
+
+### How to Apply Annotations
+
+To apply these annotations, include them in the metadata section of your CertificateRequest resource:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  annotations:
+    ejbca-issuer.keyfactor.com/endEntityName: "dns"
+    ejbca-issuer.keyfactor.com/certificateAuthorityName: "ManagementCA"
+    # ... other annotations
+spec:
+# ... rest of the spec
+```
 
 ## Cleanup
 To list the certificates and certificate requests created, run the following commands:

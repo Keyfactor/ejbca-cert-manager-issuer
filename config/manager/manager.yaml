@@ -71,7 +71,7 @@ spec:
         args:
         - --leader-elect
         image: controller:latest
-        #imagePullPolicy: Never # TODO dev field
+        imagePullPolicy: Never # TODO dev field
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
