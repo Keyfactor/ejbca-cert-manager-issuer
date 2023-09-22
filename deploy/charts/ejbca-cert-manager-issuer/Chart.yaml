@@ -1,0 +1,14 @@
+apiVersion: v2
+
+name: ejbca-cert-manager-issuer
+description: A Helm chart for Kubernetes
+type: application
+
+home: https://github.com/Keyfactor/command-cert-manager-issuer
+maintainers:
+  - name: Hayden Roszell
+    email: 49427552+m8rmclaren@users.noreply.github.com
+sources: ["https://github.com/Keyfactor/command-cert-manager-issuer"]
+
+version: 0.1.0
+appVersion: "v1.3.1"
