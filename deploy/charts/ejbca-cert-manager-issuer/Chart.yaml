@@ -1,7 +1,7 @@
 apiVersion: v2
 
 name: ejbca-cert-manager-issuer
-description: A Helm chart for Kubernetes
+description: A helm chart to deploy the cert-manager issuer for Keyfactor EJBCA
 type: application
 
 home: https://github.com/Keyfactor/ejbca-cert-manager-issuer
