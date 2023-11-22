@@ -13,6 +13,11 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
+# Whether to enable and configure the kube-rbac-proxy sidecar for authorized and authenticated
+# use of the /metrics endpoint by Prometheus.
+secureMetrics:
+  enabled: false
+
 crd:
   # Specifies whether CRDs will be created
   create: true

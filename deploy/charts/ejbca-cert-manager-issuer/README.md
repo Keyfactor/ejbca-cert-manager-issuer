@@ -14,6 +14,39 @@ A Helm chart for the Keyfactor EJBCA External Issuer for cert-manager.
 
 The EJBCA external issuer for cert-manager allows users to enroll certificates from Keyfactor EJBCA using cert-manager.
 
+## Installation
+
+### Add Helm Repository
+
+```bash
+helm repo add ejbca-issuer https://keyfactor.github.io/ejbca-cert-manager-issuer
+helm repo update
+```
+
+### Install Chart
+
+```bash
+helm install ejbca-cert-manager-issuer ejbca-issuer/ejbca-cert-manager-issuer
+```
+
+Modifications can be made by overriding the default values in the `values.yaml` file with the `--set` flag. For example, to override the `replicaCount` value, run the following ejbca:
+```bash
+helm install ejbca-cert-manager-issuer ejbca-issuer/ejbca-cert-manager-issuer \
+    --set replicaCount=2
+```
+
+Modifications can also be made by modifying the `values.yaml` file directly. For example, to override the `replicaCount` value, modify the `replicaCount` value in the `values.yaml` file:
+```yaml
+cat <<EOF > override.yaml
+replicaCount: 2
+EOF
+```
+Then, use the `-f` flag to specify the `values.yaml` file:
+```bash
+helm install ejbca-cert-manager-issuer ejbca-issuer/ejbca-cert-manager-issuer \
+    -f override.yaml
+```
+
 ## Configuration
 
 The following table lists the configurable parameters of the `ejbca-cert-manager-issuer` chart and their default values.
@@ -35,6 +68,7 @@ The following table lists the configurable parameters of the `ejbca-cert-manager
 | `podAnnotations`                  | Annotations for the pod                             | `{}`                                                         |
 | `podSecurityContext.runAsNonRoot` | Run pod as non-root                                 | `true`                                                       |
 | `securityContext`                 | Security context for the pod                        | `{}` (with commented out options)                            |
+| `secureMetrics.enabled`           | Enable secure metrics via the Kube RBAC Proy        | `false`                                                      |
 | `resources`                       | CPU/Memory resource requests/limits                 | `{}` (with commented out options)                            |
 | `nodeSelector`                    | Node labels for pod assignment                      | `{}`                                                         |
 | `tolerations`                     | Tolerations for pod assignment                      | `[]`                                                         |

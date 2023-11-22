@@ -6,18 +6,6 @@ metadata:
   name: {{ include "ejbca-cert-manager-issuer.name" . }}-leader-election-role
 rules:
   - apiGroups:
-      - ""
-    resources:
-      - configmaps
-    verbs:
-      - get
-      - list
-      - watch
-      - create
-      - update
-      - patch
-      - delete
-  - apiGroups:
       - coordination.k8s.io
     resources:
       - leases

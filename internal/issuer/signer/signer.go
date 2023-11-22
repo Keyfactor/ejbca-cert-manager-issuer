@@ -49,7 +49,7 @@ type HealthCheckerBuilder func(context.Context, *ejbcaissuer.IssuerSpec, map[str
 type EjbcaSignerBuilder func(context.Context, *ejbcaissuer.IssuerSpec, map[string]string, map[string][]byte, map[string][]byte) (Signer, error)
 
 type Signer interface {
-	Sign(context.Context, []byte) ([]byte, error)
+	Sign(context.Context, []byte) ([]byte, []byte, error)
 }
 
 func EjbcaHealthCheckerFromIssuerAndSecretData(ctx context.Context, spec *ejbcaissuer.IssuerSpec, clientCertSecretData map[string][]byte, caCertSecretData map[string][]byte) (HealthChecker, error) {
@@ -192,12 +192,12 @@ func (s *ejbcaSigner) getEndEntityName(ctx context.Context, csr *x509.Certificat
 	return eeName
 }
 
-func (s *ejbcaSigner) Sign(ctx context.Context, csrBytes []byte) ([]byte, error) {
+func (s *ejbcaSigner) Sign(ctx context.Context, csrBytes []byte) ([]byte, []byte, error) {
 	k8sLog := log.FromContext(ctx)
 
 	csr, err := parseCSR(csrBytes)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Log the common metadata of the CSR
@@ -206,7 +206,7 @@ func (s *ejbcaSigner) Sign(ctx context.Context, csrBytes []byte) ([]byte, error)
 	// If the CSR has a CommonName, use it as the EJBCA end entity name
 	ejbcaEeName := s.getEndEntityName(ctx, csr)
 	if ejbcaEeName == "" {
-		return nil, errors.New("failed to determine the EJBCA end entity name")
+		return nil, nil, errors.New("failed to determine the EJBCA end entity name")
 	}
 
 	k8sLog.Info(fmt.Sprintf("Using or Creating EJBCA End Entity called %q", ejbcaEeName))
@@ -237,13 +237,13 @@ func (s *ejbcaSigner) Sign(ctx context.Context, csrBytes []byte) ([]byte, error)
 
 		k8sLog.Error(err, detail)
 
-		return nil, fmt.Errorf(detail)
+		return nil, nil, fmt.Errorf(detail)
 	}
 
 	certAndChain, _, err := getCertificatesFromEjbcaObject(*certificateObject)
 	if err != nil {
 		k8sLog.Error(err, fmt.Sprintf("error getting certificate from EJBCA response: %s", err.Error()))
-		return nil, err
+		return nil, nil, err
 	}
 
 	k8sLog.Info(fmt.Sprintf("Successfully enrolled certificate with EJBCA"))
@@ -425,20 +425,31 @@ func getCertificatesFromEjbcaObject(ejbcaCert ejbca.CertificateRestResponse) ([]
 
 // compileCertificatesToPemString takes a slice of x509 certificates and returns a string containing the certificates in PEM format
 // If an error occurred, the function logs the error and continues to parse the remaining objects.
-func compileCertificatesToPemBytes(certificates []*x509.Certificate) ([]byte, error) {
-	var pemBuilder strings.Builder
+func compileCertificatesToPemBytes(certificates []*x509.Certificate) ([]byte, []byte, error) {
+	var leaf strings.Builder
+	var chain strings.Builder
 
-	for _, certificate := range certificates {
-		err := pem.Encode(&pemBuilder, &pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: certificate.Raw,
-		})
-		if err != nil {
-			return make([]byte, 0, 0), err
+	for i, certificate := range certificates {
+		if i == 0 {
+			err := pem.Encode(&leaf, &pem.Block{
+				Type:  "CERTIFICATE",
+				Bytes: certificate.Raw,
+			})
+			if err != nil {
+				return make([]byte, 0), make([]byte, 0), err
+			}
+		} else {
+			err := pem.Encode(&chain, &pem.Block{
+				Type:  "CERTIFICATE",
+				Bytes: certificate.Raw,
+			})
+			if err != nil {
+				return make([]byte, 0), make([]byte, 0), err
+			}
 		}
 	}
 
-	return []byte(pemBuilder.String()), nil
+	return []byte(leaf.String()), []byte(chain.String()), nil
 }
 
 func decodePEMBytes(buf []byte) ([]*pem.Block, *pem.Block) {

@@ -224,11 +224,12 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, fmt.Errorf("%w: %v", errSignerBuilder, err)
 	}
 
-	signed, err := ejbcaSigner.Sign(ctx, certificateRequest.Spec.Request)
+	leaf, chain, err := ejbcaSigner.Sign(ctx, certificateRequest.Spec.Request)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("%w: %v", errSignerSign, err)
 	}
-	certificateRequest.Status.Certificate = signed
+	certificateRequest.Status.Certificate = leaf
+	certificateRequest.Status.CA = chain
 
 	issuerutil.SetCertificateRequestReadyCondition(ctx, &certificateRequest, cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Signed")
 	return ctrl.Result{}, nil

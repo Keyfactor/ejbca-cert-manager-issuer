@@ -145,12 +145,13 @@ func TestEjbcaSignerFromIssuerAndSecretData(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		signedCert, err := signer.Sign(context.Background(), csr)
+		signedCert, chain, err := signer.Sign(context.Background(), csr)
 		if err != nil {
-			return
+			t.Fatal(err)
 		}
 
 		t.Log(fmt.Sprintf("Signed certificate: %s", string(signedCert)))
+		t.Log(fmt.Sprintf("Chain: %s", string(chain)))
 	})
 
 	t.Run("With Annotations", func(t *testing.T) {
