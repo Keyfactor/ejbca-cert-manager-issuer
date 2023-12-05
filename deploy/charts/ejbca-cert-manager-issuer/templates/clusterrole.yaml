@@ -6,14 +6,6 @@ metadata:
   name: {{ include "ejbca-cert-manager-issuer.name" . }}-manager-role
 rules:
   - apiGroups:
-      - ""
-    resources:
-      - secrets
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
       - cert-manager.io
     resources:
       - certificaterequests
