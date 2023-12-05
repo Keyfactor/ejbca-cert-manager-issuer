@@ -605,12 +605,13 @@ func TestCertificateRequestReconcile(t *testing.T) {
 				WithObjects(tc.objects...).
 				Build()
 			controller := CertificateRequestReconciler{
-				Client:                   fakeClient,
-				Scheme:                   scheme,
-				ClusterResourceNamespace: tc.clusterResourceNamespace,
-				SignerBuilder:            tc.Builder,
-				CheckApprovedCondition:   true,
-				Clock:                    fixedClock,
+				Client:                            fakeClient,
+				Scheme:                            scheme,
+				ClusterResourceNamespace:          tc.clusterResourceNamespace,
+				SignerBuilder:                     tc.Builder,
+				CheckApprovedCondition:            true,
+				Clock:                             fixedClock,
+				SecretAccessGrantedAtClusterLevel: true,
 			}
 			result, err := controller.Reconcile(
 				ctrl.LoggerInto(context.TODO(), logrtesting.NewTestLogger(t)),

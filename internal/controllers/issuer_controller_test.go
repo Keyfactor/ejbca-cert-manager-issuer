@@ -251,11 +251,12 @@ func TestIssuerReconcile(t *testing.T) {
 				tc.kind = "Issuer"
 			}
 			controller := IssuerReconciler{
-				Kind:                     tc.kind,
-				Client:                   fakeClient,
-				Scheme:                   scheme,
-				HealthCheckerBuilder:     tc.healthCheckerBuilder,
-				ClusterResourceNamespace: tc.clusterResourceNamespace,
+				Kind:                              tc.kind,
+				Client:                            fakeClient,
+				Scheme:                            scheme,
+				HealthCheckerBuilder:              tc.healthCheckerBuilder,
+				ClusterResourceNamespace:          tc.clusterResourceNamespace,
+				SecretAccessGrantedAtClusterLevel: true,
 			}
 			result, err := controller.Reconcile(
 				ctrl.LoggerInto(context.TODO(), logrtesting.NewTestLogger(t)),

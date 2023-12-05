@@ -53,14 +53,14 @@ The cert-manager external issuer for Keyfactor EJBCA can also be installed using
 
 1. Add the Helm repository:
 
-    ```bash
+    ```shell
     helm repo add ejbca-issuer https://keyfactor.github.io/ejbca-cert-manager-issuer
     helm repo update
     ```
 
 2. Then, install the chart:
 
-    ```bash
+    ```shell
     helm install ejbca-cert-manager-issuer ejbca-issuer/ejbca-cert-manager-issuer \
         --namespace ejbca-issuer-system \
         --create-namespace \
@@ -69,39 +69,37 @@ The cert-manager external issuer for Keyfactor EJBCA can also be installed using
         # --set image.pullPolicy=Never # Only required if using a local image
     ```
 
-   a. Modifications can be made by overriding the default values in the `values.yaml` file with the `--set` flag. For example, to override the `replicaCount` value, run the following command:
+   1. Modifications can be made by overriding the default values in the `values.yaml` file with the `--set` flag. For example, to override the `secretConfig.useClusterRoleForSecretAccess` to configure the chart to use a cluster role for secret access, run the following command:
 
-    ```shell
-    helm install ejbca-cert-manager-issuer ejbca-issuer/ejbca-cert-manager-issuer \
-        --namespace ejbca-issuer-system \
-        --create-namespace \
-        --set image.repository=<your container registry>/keyfactor/ejbca-cert-manager-issuer \
-        --set image.tag=<tag>
-        --set replicaCount=2
-    ```
+        ```shell
+        helm install ejbca-cert-manager-issuer ejbca-issuer/ejbca-cert-manager-issuer \
+            --namespace ejbca-issuer-system \
+            --create-namespace \
+            --set image.repository=<your container registry>/keyfactor/ejbca-cert-manager-issuer \
+            --set image.tag=<tag>
+            --set replicaCount=2
+        ```
 
-   b. Modifications can also be made by modifying the `values.yaml` file directly. For example, to override the
-   `replicaCount` value, modify the `replicaCount` value in the `values.yaml` file:
+   2. Modifications can also be made by modifying the `values.yaml` file directly. For example, to override the `secretConfig.useClusterRoleForSecretAccess` value to configure the chart to use a cluster role for secret access, modify the `secretConfig.useClusterRoleForSecretAccess` value in the `values.yaml` file by creating an override file:
 
-    ```yaml
-    cat <<EOF > override.yaml
-    image:
-        repository: <your container registry>/keyfactor/ejbca-cert-manager-issuer
-        pullPolicy: Never
-        tag: "latest"
-    replicaCount: 2
-    EOF
-    ```
+        ```yaml
+        cat <<EOF > override.yaml
+        image:
+            repository: <your container registry>/keyfactor/ejbca-cert-manager-issuer
+            pullPolicy: Never
+            tag: "latest"
+        secretConfig:
+            useClusterRoleForSecretAccess: true
+        EOF
+        ```
 
-   Then, use the `-f` flag to specify the `values.yaml` file:
+        Then, use the `-f` flag to specify the `values.yaml` file:
 
-    ```yaml
-    helm install ejbca-cert-manager-issuer ejbca-issuer/ejbca-cert-manager-issuer \
-        -f override.yaml
-    ```
+        ```shell
+        helm install ejbca-cert-manager-issuer ejbca-issuer/ejbca-cert-manager-issuer \
+            --namespace command-issuer-system \
+            -f override.yaml
+        ```
 
 Next, complete the [Usage](config_usage.md) steps to configure the cert-manager external issuer for Keyfactor EJBCA.
-
-
-
 

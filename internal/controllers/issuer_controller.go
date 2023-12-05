@@ -48,10 +48,11 @@ var (
 // IssuerReconciler reconciles a Issuer object
 type IssuerReconciler struct {
 	client.Client
-	Kind                     string
-	Scheme                   *runtime.Scheme
-	ClusterResourceNamespace string
-	HealthCheckerBuilder     signer.HealthCheckerBuilder
+	Kind                              string
+	Scheme                            *runtime.Scheme
+	ClusterResourceNamespace          string
+	HealthCheckerBuilder              signer.HealthCheckerBuilder
+	SecretAccessGrantedAtClusterLevel bool
 }
 
 //+kubebuilder:rbac:groups=ejbca-issuer.keyfactor.com,resources=issuers;clusterissuers,verbs=get;list;watch
@@ -122,6 +123,11 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	default:
 		log.Error(fmt.Errorf("unexpected issuer type: %t", issuer), "Not retrying.")
 		return ctrl.Result{}, nil
+	}
+
+	// If SecretAccessGrantedAtClusterLevel is false, we always look for the Secret in the same namespace as the Issuer
+	if !r.SecretAccessGrantedAtClusterLevel {
+		secretName.Namespace = r.ClusterResourceNamespace
 	}
 
 	var authSecret corev1.Secret

@@ -25,25 +25,44 @@ helm repo update
 
 ### Install Chart
 
-```bash
-helm install ejbca-cert-manager-issuer ejbca-issuer/ejbca-cert-manager-issuer
+```shell
+helm install ejbca-cert-manager-issuer ejbca-issuer/ejbca-cert-manager-issuer \
+    --namespace ejbca-issuer-system \
+    --create-namespace \
+    --set image.repository=<your container registry>/keyfactor/ejbca-cert-manager-issuer \
+    --set image.tag=<tag>
+    # --set image.pullPolicy=Never # Only required if using a local image
 ```
 
-Modifications can be made by overriding the default values in the `values.yaml` file with the `--set` flag. For example, to override the `replicaCount` value, run the following ejbca:
-```bash
+Modifications can be made by overriding the default values in the `values.yaml` file with the `--set` flag. For example, to override the `secretConfig.useClusterRoleForSecretAccess` to configure the chart to use a cluster role for secret access, run the following command:
+
+```shell
 helm install ejbca-cert-manager-issuer ejbca-issuer/ejbca-cert-manager-issuer \
+    --namespace ejbca-issuer-system \
+    --create-namespace \
+    --set image.repository=<your container registry>/keyfactor/ejbca-cert-manager-issuer \
+    --set image.tag=<tag>
     --set replicaCount=2
 ```
 
-Modifications can also be made by modifying the `values.yaml` file directly. For example, to override the `replicaCount` value, modify the `replicaCount` value in the `values.yaml` file:
+Modifications can also be made by modifying the `values.yaml` file directly. For example, to override the `secretConfig.useClusterRoleForSecretAccess` value to configure the chart to use a cluster role for secret access, modify the `secretConfig.useClusterRoleForSecretAccess` value in the `values.yaml` file by creating an override file:
+
 ```yaml
 cat <<EOF > override.yaml
-replicaCount: 2
+image:
+    repository: <your container registry>/keyfactor/ejbca-cert-manager-issuer
+    pullPolicy: Never
+    tag: "latest"
+secretConfig:
+    useClusterRoleForSecretAccess: true
 EOF
 ```
+
 Then, use the `-f` flag to specify the `values.yaml` file:
-```bash
+
+```shell
 helm install ejbca-cert-manager-issuer ejbca-issuer/ejbca-cert-manager-issuer \
+    --namespace command-issuer-system \
     -f override.yaml
 ```
 
@@ -51,24 +70,25 @@ helm install ejbca-cert-manager-issuer ejbca-issuer/ejbca-cert-manager-issuer \
 
 The following table lists the configurable parameters of the `ejbca-cert-manager-issuer` chart and their default values.
 
-| Parameter                         | Description                                         | Default                                                      |
-|-----------------------------------|-----------------------------------------------------|--------------------------------------------------------------|
-| `replicaCount`                    | Number of replica ejbca-cert-manager-issuers to run | `1`                                                          |
-| `image.repository`                | Image repository                                    | `m8rmclarenkf/ejbca-cert-manager-external-issuer-controller` |
-| `image.pullPolicy`                | Image pull policy                                   | `IfNotPresent`                                               |
-| `image.tag`                       | Image tag                                           | `v1.3.1`                                                     |
-| `imagePullSecrets`                | Image pull secrets                                  | `[]`                                                         |
-| `nameOverride`                    | Name override                                       | `""`                                                         |
-| `fullnameOverride`                | Full name override                                  | `""`                                                         |
-| `crd.create`                      | Specifies if CRDs will be created                   | `true`                                                       |
-| `crd.annotations`                 | Annotations to add to the CRD                       | `{}`                                                         |
-| `serviceAccount.create`           | Specifies if a service account should be created    | `true`                                                       |
-| `serviceAccount.annotations`      | Annotations to add to the service account           | `{}`                                                         |
-| `serviceAccount.name`             | Name of the service account to use                  | `""` (uses the fullname template if `create` is true)        |
-| `podAnnotations`                  | Annotations for the pod                             | `{}`                                                         |
-| `podSecurityContext.runAsNonRoot` | Run pod as non-root                                 | `true`                                                       |
-| `securityContext`                 | Security context for the pod                        | `{}` (with commented out options)                            |
-| `secureMetrics.enabled`           | Enable secure metrics via the Kube RBAC Proy        | `false`                                                      |
-| `resources`                       | CPU/Memory resource requests/limits                 | `{}` (with commented out options)                            |
-| `nodeSelector`                    | Node labels for pod assignment                      | `{}`                                                         |
-| `tolerations`                     | Tolerations for pod assignment                      | `[]`                                                         |
+| Parameter                                    | Description                                                                                         | Default                                                      |
+|----------------------------------------------|-----------------------------------------------------------------------------------------------------|--------------------------------------------------------------|
+| `replicaCount`                               | Number of replica ejbca-cert-manager-issuers to run                                                 | `1`                                                          |
+| `image.repository`                           | Image repository                                                                                    | `m8rmclarenkf/ejbca-cert-manager-external-issuer-controller` |
+| `image.pullPolicy`                           | Image pull policy                                                                                   | `IfNotPresent`                                               |
+| `image.tag`                                  | Image tag                                                                                           | `v1.3.1`                                                     |
+| `imagePullSecrets`                           | Image pull secrets                                                                                  | `[]`                                                         |
+| `nameOverride`                               | Name override                                                                                       | `""`                                                         |
+| `fullnameOverride`                           | Full name override                                                                                  | `""`                                                         |
+| `crd.create`                                 | Specifies if CRDs will be created                                                                   | `true`                                                       |
+| `crd.annotations`                            | Annotations to add to the CRD                                                                       | `{}`                                                         |
+| `serviceAccount.create`                      | Specifies if a service account should be created                                                    | `true`                                                       |
+| `serviceAccount.annotations`                 | Annotations to add to the service account                                                           | `{}`                                                         |
+| `serviceAccount.name`                        | Name of the service account to use                                                                  | `""` (uses the fullname template if `create` is true)        |
+| `podAnnotations`                             | Annotations for the pod                                                                             | `{}`                                                         |
+| `podSecurityContext.runAsNonRoot`            | Run pod as non-root                                                                                 | `true`                                                       |
+| `securityContext`                            | Security context for the pod                                                                        | `{}` (with commented out options)                            |
+| `secureMetrics.enabled`                      | Enable secure metrics via the Kube RBAC Proy                                                        | `false`                                                      |
+| `resources`                                  | CPU/Memory resource requests/limits                                                                 | `{}` (with commented out options)                            |
+| `nodeSelector`                               | Node labels for pod assignment                                                                      | `{}`                                                         |
+| `tolerations`                                | Tolerations for pod assignment                                                                      | `[]`                                                         |
+| `secretConfig.useClusterRoleForSecretAccess` | Specifies if the ServiceAccount should be granted access to the Secret resource using a ClusterRole | `false`                                                      |

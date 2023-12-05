@@ -51,8 +51,9 @@ type CertificateRequestReconciler struct {
 	SignerBuilder            signer.EjbcaSignerBuilder
 	ClusterResourceNamespace string
 
-	Clock                  clock.Clock
-	CheckApprovedCondition bool
+	Clock                             clock.Clock
+	CheckApprovedCondition            bool
+	SecretAccessGrantedAtClusterLevel bool
 }
 
 // +kubebuilder:rbac:groups=cert-manager.io,resources=certificaterequests,verbs=get;list;watch
@@ -175,6 +176,11 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		log.Error(err, "The issuerRef referred to a registered Kind which is not yet handled. Ignoring.")
 		issuerutil.SetCertificateRequestReadyCondition(ctx, &certificateRequest, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, err.Error())
 		return ctrl.Result{}, nil
+	}
+
+	// If SecretAccessGrantedAtClusterLevel is false, we always look for the Secret in the same namespace as the Issuer
+	if !r.SecretAccessGrantedAtClusterLevel {
+		secretNamespace = r.ClusterResourceNamespace
 	}
 
 	// Get the Issuer or ClusterIssuer

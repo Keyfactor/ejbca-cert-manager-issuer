@@ -10,7 +10,7 @@
 The cert-manager external issuer for Keyfactor EJBCA can be used to issue certificates from Keyfactor EJBCA using cert-manager.
 
 ### Authentication
-Authentication to the EJBCA platform is done using a client certificate and key. The client certificate and key must be provided as a Kubernetes secret.
+Authentication to the EJBCA platform is done using a client certificate and key. The client certificate and key must be provided as a Kubernetes secret. If the Helm chart was deployed with the `--set "secretConfig.useClusterRoleForSecretAccess=true"` flag, the secret must be created in the same namespace as any Issuer resources deployed. Otherwise, the secret must be created in the same namespace as the controller.
 
 Create a K8s TLS secret containing the client certificate and key to authenticate with EJBCA:
 ```shell

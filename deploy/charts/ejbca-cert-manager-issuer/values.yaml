@@ -18,6 +18,16 @@ fullnameOverride: ""
 secureMetrics:
   enabled: false
 
+secretConfig:
+  # If true, when using Issuer resources, the credential secret must be created in the same namespace as the
+  # Issuer resource. This access is facilitated by granting the ServiceAccount [get, list, watch] for the secret
+  # API at the cluster level.
+  #
+  # If false, both Issuer and ClusterIssuer must reference a secret in the same namespace as the chart/reconciler.
+  # This access is facilitated by granting the ServiceAccount [get, list, watch] for the secret API only for the
+  # namespace the chart is deployed in.
+  useClusterRoleForSecretAccess: false
+
 crd:
   # Specifies whether CRDs will be created
   create: true
