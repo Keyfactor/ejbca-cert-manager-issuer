@@ -150,8 +150,8 @@ func TestEjbcaSignerFromIssuerAndSecretData(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		t.Log(fmt.Sprintf("Signed certificate: %s", string(signedCert)))
-		t.Log(fmt.Sprintf("Chain: %s", string(chain)))
+		t.Logf("Signed certificate: %s", string(signedCert))
+		t.Logf("Chain: %s", string(chain))
 	})
 
 	t.Run("With Annotations", func(t *testing.T) {
@@ -449,7 +449,7 @@ func parseSubjectDN(subject string, randomizeCn bool) (pkix.Name, error) {
 			name.OrganizationalUnit = []string{value}
 		case "CN":
 			if randomizeCn {
-				value = fmt.Sprintf("%s-%s", value, generateRandomString(5))
+				name.CommonName = fmt.Sprintf("%s-%s", value, generateRandomString(5))
 			} else {
 				name.CommonName = value
 			}

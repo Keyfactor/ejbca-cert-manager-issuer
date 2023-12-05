@@ -227,7 +227,7 @@ func (s *ejbcaSigner) Sign(ctx context.Context, csrBytes []byte) ([]byte, []byte
 	// Enroll certificate
 	certificateObject, _, err := s.client.V1CertificateApi.EnrollPkcs10Certificate(context.Background()).EnrollCertificateRestRequest(enroll).Execute()
 	if err != nil {
-		detail := fmt.Sprintf("error enrolling certificate with EJBCA. verify that the certificate profile name, end entity profile name, and certificate authority name are appropriate for the certificate request.")
+		detail := "error enrolling certificate with EJBCA. verify that the certificate profile name, end entity profile name, and certificate authority name are appropriate for the certificate request."
 
 		var bodyError *ejbca.GenericOpenAPIError
 		ok := errors.As(err, &bodyError)
@@ -246,7 +246,7 @@ func (s *ejbcaSigner) Sign(ctx context.Context, csrBytes []byte) ([]byte, []byte
 		return nil, nil, err
 	}
 
-	k8sLog.Info(fmt.Sprintf("Successfully enrolled certificate with EJBCA"))
+	k8sLog.Info("Successfully enrolled certificate with EJBCA")
 
 	// Return the certificate and chain in PEM format
 	return compileCertificatesToPemBytes(certAndChain)
@@ -323,7 +323,7 @@ func createClientFromSecretMap(ctx context.Context, hostname string, clientCertS
 	ejbcaConfig.SetClientCertificate(&tlsCert)
 
 	// If the CA certificate is provided, add it to the EJBCA configuration
-	if caCertSecretData != nil && len(caCertSecretData) > 0 {
+	if len(caCertSecretData) > 0 {
 		// There is no requirement that the CA certificate is stored under a specific key in the secret, so we can just iterate over the map
 		var caCertBytes []byte
 		for _, caCertBytes = range caCertSecretData {
