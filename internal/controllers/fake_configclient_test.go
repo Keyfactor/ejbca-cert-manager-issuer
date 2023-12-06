@@ -44,14 +44,14 @@ func NewFakeConfigClient(fakeControllerRuntimeClient client.Client) util.ConfigC
 	}
 }
 
-func (f FakeConfigClient) SetContext(ctx context.Context) {
+func (f *FakeConfigClient) SetContext(ctx context.Context) {
 	f.ctx = ctx
 }
 
-func (f FakeConfigClient) GetConfigMap(name types.NamespacedName, out *corev1.ConfigMap) error {
+func (f *FakeConfigClient) GetConfigMap(name types.NamespacedName, out *corev1.ConfigMap) error {
 	return f.client.Get(f.ctx, name, out)
 }
 
-func (f FakeConfigClient) GetSecret(name types.NamespacedName, out *corev1.Secret) error {
+func (f *FakeConfigClient) GetSecret(name types.NamespacedName, out *corev1.Secret) error {
 	return f.client.Get(f.ctx, name, out)
 }

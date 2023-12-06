@@ -107,7 +107,7 @@ func (c *configClient) GetConfigMap(name types.NamespacedName, out *corev1.Confi
 	}
 
 	// Check if the client has access to the configmap resource
-	if ok, _ := c.accessCache[name.String()]; !ok {
+	if _, ok := c.accessCache[name.String()]; !ok {
 		err := c.verifyAccessFunc("configmaps", name)
 		if err != nil {
 			return err
@@ -132,7 +132,7 @@ func (c *configClient) GetSecret(name types.NamespacedName, out *corev1.Secret) 
 	}
 
 	// Check if the client has access to the secret resource
-	if ok, _ := c.accessCache[name.String()]; !ok {
+	if _, ok := c.accessCache[name.String()]; !ok {
 		err := c.verifyAccessFunc("secrets", name)
 		if err != nil {
 			return err
