@@ -17,11 +17,13 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"github.com/Keyfactor/ejbca-issuer/internal/controllers"
 	signer "github.com/Keyfactor/ejbca-issuer/internal/issuer/signer"
+	"github.com/Keyfactor/ejbca-issuer/internal/issuer/util"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"k8s.io/utils/clock"
 	"os"
@@ -105,6 +107,12 @@ func main() {
 		setupLog.Info(fmt.Sprintf("expecting secret access at namespace level (%s)", clusterResourceNamespace))
 	}
 
+	ctx := context.Background()
+	configClient, err := util.NewConfigClient(ctx)
+	if err != nil {
+		setupLog.Error(err, "error creating config client")
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
@@ -132,6 +140,7 @@ func main() {
 	if err = (&controllers.IssuerReconciler{
 		Kind:                              "Issuer",
 		Client:                            mgr.GetClient(),
+		ConfigClient:                      configClient,
 		Scheme:                            mgr.GetScheme(),
 		ClusterResourceNamespace:          clusterResourceNamespace,
 		HealthCheckerBuilder:              signer.EjbcaHealthCheckerFromIssuerAndSecretData,
@@ -143,6 +152,7 @@ func main() {
 	if err = (&controllers.IssuerReconciler{
 		Kind:                              "ClusterIssuer",
 		Client:                            mgr.GetClient(),
+		ConfigClient:                      configClient,
 		Scheme:                            mgr.GetScheme(),
 		ClusterResourceNamespace:          clusterResourceNamespace,
 		HealthCheckerBuilder:              signer.EjbcaHealthCheckerFromIssuerAndSecretData,
@@ -153,6 +163,7 @@ func main() {
 	}
 	if err = (&controllers.CertificateRequestReconciler{
 		Client:                            mgr.GetClient(),
+		ConfigClient:                      configClient,
 		Scheme:                            mgr.GetScheme(),
 		ClusterResourceNamespace:          clusterResourceNamespace,
 		SignerBuilder:                     signer.EjbcaSignerFromIssuerAndSecretData,

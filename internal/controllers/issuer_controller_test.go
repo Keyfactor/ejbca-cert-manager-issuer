@@ -126,7 +126,7 @@ func TestIssuerReconcile(t *testing.T) {
 			expectedReadyConditionStatus: ejbcaissuer.ConditionTrue,
 			expectedResult:               ctrl.Result{RequeueAfter: defaultHealthCheckInterval},
 		},
-		"issuer-kind-unrecognised": {
+		"issuer-kind-Unrecognized": {
 			kind: "UnrecognizedType",
 			name: types.NamespacedName{Namespace: "ns1", Name: "issuer1"},
 		},
@@ -253,6 +253,7 @@ func TestIssuerReconcile(t *testing.T) {
 			controller := IssuerReconciler{
 				Kind:                              tc.kind,
 				Client:                            fakeClient,
+				ConfigClient:                      NewFakeConfigClient(fakeClient),
 				Scheme:                            scheme,
 				HealthCheckerBuilder:              tc.healthCheckerBuilder,
 				ClusterResourceNamespace:          tc.clusterResourceNamespace,

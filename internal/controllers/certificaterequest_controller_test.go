@@ -603,6 +603,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 				Build()
 			controller := CertificateRequestReconciler{
 				Client:                            fakeClient,
+				ConfigClient:                      NewFakeConfigClient(fakeClient),
 				Scheme:                            scheme,
 				ClusterResourceNamespace:          tc.clusterResourceNamespace,
 				SignerBuilder:                     tc.Builder,
