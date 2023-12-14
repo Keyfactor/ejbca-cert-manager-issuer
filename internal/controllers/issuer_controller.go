@@ -60,6 +60,7 @@ type IssuerReconciler struct {
 //+kubebuilder:rbac:groups=ejbca-issuer.keyfactor.com,resources=issuers/status;clusterissuers/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=ejbca-issuer.keyfactor.com,resources=issuers/finalizers,verbs=update
 
+// newIssuer returns a new Issuer or ClusterIssuer object
 func (r *IssuerReconciler) newIssuer() (client.Object, error) {
 	issuerGVK := ejbcaissuer.GroupVersion.WithKind(r.Kind)
 	ro, err := r.Scheme.New(issuerGVK)
@@ -69,6 +70,7 @@ func (r *IssuerReconciler) newIssuer() (client.Object, error) {
 	return ro.(client.Object), nil
 }
 
+// Reconcile reconciles and updates the status of an Issuer or ClusterIssuer object
 func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -167,6 +169,8 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	return ctrl.Result{RequeueAfter: defaultHealthCheckInterval}, nil
 }
 
+// SetupWithManager registers the IssuerReconciler with the controller manager.
+// It configures controller-runtime to reconcile Keyfactor EJBCA Issuers/ClusterIssuers in the cluster.
 func (r *IssuerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	issuerType, err := r.newIssuer()
 	if err != nil {
