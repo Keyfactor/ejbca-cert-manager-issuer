@@ -1,5 +1,5 @@
 /*
-Copyright 2023 Keyfactor.
+Copyright © 2023 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -47,18 +47,22 @@ var (
 
 type CertificateRequestReconciler struct {
 	client.Client
+	ConfigClient             issuerutil.ConfigClient
 	Scheme                   *runtime.Scheme
 	SignerBuilder            signer.EjbcaSignerBuilder
 	ClusterResourceNamespace string
 
-	Clock                  clock.Clock
-	CheckApprovedCondition bool
+	Clock                             clock.Clock
+	CheckApprovedCondition            bool
+	SecretAccessGrantedAtClusterLevel bool
 }
 
 // +kubebuilder:rbac:groups=cert-manager.io,resources=certificaterequests,verbs=get;list;watch
 // +kubebuilder:rbac:groups=cert-manager.io,resources=certificaterequests/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
+// Reconcile attempts to sign a CertificateRequest given the configuration provided and a configured
+// EJBCA signer instance.
 func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	log := ctrl.LoggerFrom(ctx)
 
@@ -142,8 +146,8 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	// Add a Ready condition if one does not already exist
 	if ready := cmutil.GetCertificateRequestCondition(&certificateRequest, cmapi.CertificateRequestConditionReady); ready == nil {
-		log.Info("Initialising Ready condition")
-		issuerutil.SetCertificateRequestReadyCondition(ctx, &certificateRequest, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Initialising")
+		log.Info("Initializing Ready condition")
+		issuerutil.SetCertificateRequestReadyCondition(ctx, &certificateRequest, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonPending, "Initializing")
 		return ctrl.Result{}, nil
 	}
 
@@ -177,6 +181,11 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, nil
 	}
 
+	// If SecretAccessGrantedAtClusterLevel is false, we always look for the Secret in the same namespace as the Issuer
+	if !r.SecretAccessGrantedAtClusterLevel {
+		secretNamespace = r.ClusterResourceNamespace
+	}
+
 	// Get the Issuer or ClusterIssuer
 	if err := r.Get(ctx, issuerName, issuer); err != nil {
 		return ctrl.Result{}, fmt.Errorf("%w: %v", errGetIssuer, err)
@@ -193,6 +202,9 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, errIssuerNotReady
 	}
 
+	// Set the context on the config client
+	r.ConfigClient.SetContext(ctx)
+
 	// Retrieve the auth secret
 	authSecretName := types.NamespacedName{
 		Name:      issuerSpec.EjbcaSecretName,
@@ -200,7 +212,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	var authSecret corev1.Secret
-	if err := r.Get(ctx, authSecretName, &authSecret); err != nil {
+	if err := r.ConfigClient.GetSecret(authSecretName, &authSecret); err != nil {
 		return ctrl.Result{}, fmt.Errorf("%w, authSecret name: %s, reason: %v", errGetAuthSecret, authSecretName, err)
 	}
 
@@ -213,7 +225,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	var caSecret corev1.Secret
 	if issuerSpec.CaBundleSecretName != "" {
 		// If the CA secret name is not specified, we will not attempt to retrieve it
-		err = r.Get(ctx, caSecretName, &caSecret)
+		err = r.ConfigClient.GetSecret(caSecretName, &caSecret)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %v", errGetCaSecret, caSecretName, err)
 		}
@@ -224,16 +236,19 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, fmt.Errorf("%w: %v", errSignerBuilder, err)
 	}
 
-	signed, err := ejbcaSigner.Sign(ctx, certificateRequest.Spec.Request)
+	leaf, chain, err := ejbcaSigner.Sign(ctx, certificateRequest.Spec.Request)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("%w: %v", errSignerSign, err)
 	}
-	certificateRequest.Status.Certificate = signed
+	certificateRequest.Status.Certificate = leaf
+	certificateRequest.Status.CA = chain
 
 	issuerutil.SetCertificateRequestReadyCondition(ctx, &certificateRequest, cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Signed")
 	return ctrl.Result{}, nil
 }
 
+// SetupWithManager registers the CertificateRequestReconciler with the controller manager.
+// It configures controller-runtime to reconcile cert-manager CertificateRequests in the cluster.
 func (r *CertificateRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&cmapi.CertificateRequest{}).

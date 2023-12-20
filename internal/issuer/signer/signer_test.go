@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Keyfactor Command Authors.
+Copyright © 2023 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -145,12 +145,13 @@ func TestEjbcaSignerFromIssuerAndSecretData(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		signedCert, err := signer.Sign(context.Background(), csr)
+		signedCert, chain, err := signer.Sign(context.Background(), csr)
 		if err != nil {
-			return
+			t.Fatal(err)
 		}
 
-		t.Log(fmt.Sprintf("Signed certificate: %s", string(signedCert)))
+		t.Logf("Signed certificate: %s", string(signedCert))
+		t.Logf("Chain: %s", string(chain))
 	})
 
 	t.Run("With Annotations", func(t *testing.T) {
@@ -448,7 +449,7 @@ func parseSubjectDN(subject string, randomizeCn bool) (pkix.Name, error) {
 			name.OrganizationalUnit = []string{value}
 		case "CN":
 			if randomizeCn {
-				value = fmt.Sprintf("%s-%s", value, generateRandomString(5))
+				name.CommonName = fmt.Sprintf("%s-%s", value, generateRandomString(5))
 			} else {
 				name.CommonName = value
 			}

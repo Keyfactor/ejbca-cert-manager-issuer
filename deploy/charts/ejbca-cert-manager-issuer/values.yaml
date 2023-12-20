@@ -1,0 +1,73 @@
+# Default values for ejbca-cert-manager-issuer chart.
+
+# The number of replica ejbca-cert-manager-issuers to run
+replicaCount: 1
+
+image:
+  repository: m8rmclarenkf/ejbca-cert-manager-external-issuer-controller
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Whether to enable and configure the kube-rbac-proxy sidecar for authorized and authenticated
+# use of the /metrics endpoint by Prometheus.
+secureMetrics:
+  enabled: false
+
+secretConfig:
+  # If true, when using Issuer resources, the credential secret must be created in the same namespace as the
+  # Issuer resource. This access is facilitated by granting the ServiceAccount [get, list, watch] for the secret
+  # API at the cluster level.
+  #
+  # If false, both Issuer and ClusterIssuer must reference a secret in the same namespace as the chart/reconciler.
+  # This access is facilitated by granting the ServiceAccount [get, list, watch] for the secret API only for the
+  # namespace the chart is deployed in.
+  useClusterRoleForSecretAccess: false
+
+crd:
+  # Specifies whether CRDs will be created
+  create: true
+  # Annotations to add to the CRD
+  annotations: {}
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []

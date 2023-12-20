@@ -1,5 +1,5 @@
 /*
-Copyright 2023 Keyfactor.
+Copyright © 2023 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,11 +17,13 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"github.com/Keyfactor/ejbca-issuer/internal/controllers"
 	signer "github.com/Keyfactor/ejbca-issuer/internal/issuer/signer"
+	"github.com/Keyfactor/ejbca-issuer/internal/issuer/util"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"k8s.io/utils/clock"
 	"os"
@@ -64,6 +66,7 @@ func main() {
 	var clusterResourceNamespace string
 	var printVersion bool
 	var disableApprovedCheck bool
+	var secretAccessGrantedAtClusterLevel bool
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -74,6 +77,8 @@ func main() {
 	flag.BoolVar(&printVersion, "version", false, "Print version to stdout and exit")
 	flag.BoolVar(&disableApprovedCheck, "disable-approved-check", false,
 		"Disables waiting for CertificateRequests to have an approved condition before signing.")
+	flag.BoolVar(&secretAccessGrantedAtClusterLevel, "secret-access-granted-at-cluster-level", false,
+		"Set this flag to true if the secret access is granted at cluster level. This will allow the controller to access secrets in any namespace. ")
 
 	opts := zap.Options{
 		Development: true,
@@ -94,6 +99,18 @@ func main() {
 			}
 			os.Exit(1)
 		}
+	}
+
+	if secretAccessGrantedAtClusterLevel {
+		setupLog.Info("expecting secret access at cluster level")
+	} else {
+		setupLog.Info(fmt.Sprintf("expecting secret access at namespace level (%s)", clusterResourceNamespace))
+	}
+
+	ctx := context.Background()
+	configClient, err := util.NewConfigClient(ctx)
+	if err != nil {
+		setupLog.Error(err, "error creating config client")
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -121,32 +138,38 @@ func main() {
 	}
 
 	if err = (&controllers.IssuerReconciler{
-		Kind:                     "Issuer",
-		Client:                   mgr.GetClient(),
-		Scheme:                   mgr.GetScheme(),
-		ClusterResourceNamespace: clusterResourceNamespace,
-		HealthCheckerBuilder:     signer.EjbcaHealthCheckerFromIssuerAndSecretData,
+		Kind:                              "Issuer",
+		Client:                            mgr.GetClient(),
+		ConfigClient:                      configClient,
+		Scheme:                            mgr.GetScheme(),
+		ClusterResourceNamespace:          clusterResourceNamespace,
+		HealthCheckerBuilder:              signer.EjbcaHealthCheckerFromIssuerAndSecretData,
+		SecretAccessGrantedAtClusterLevel: secretAccessGrantedAtClusterLevel,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Issuer")
 		os.Exit(1)
 	}
 	if err = (&controllers.IssuerReconciler{
-		Kind:                     "ClusterIssuer",
-		Client:                   mgr.GetClient(),
-		Scheme:                   mgr.GetScheme(),
-		ClusterResourceNamespace: clusterResourceNamespace,
-		HealthCheckerBuilder:     signer.EjbcaHealthCheckerFromIssuerAndSecretData,
+		Kind:                              "ClusterIssuer",
+		Client:                            mgr.GetClient(),
+		ConfigClient:                      configClient,
+		Scheme:                            mgr.GetScheme(),
+		ClusterResourceNamespace:          clusterResourceNamespace,
+		HealthCheckerBuilder:              signer.EjbcaHealthCheckerFromIssuerAndSecretData,
+		SecretAccessGrantedAtClusterLevel: secretAccessGrantedAtClusterLevel,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterIssuer")
 		os.Exit(1)
 	}
 	if err = (&controllers.CertificateRequestReconciler{
-		Client:                   mgr.GetClient(),
-		Scheme:                   mgr.GetScheme(),
-		ClusterResourceNamespace: clusterResourceNamespace,
-		SignerBuilder:            signer.EjbcaSignerFromIssuerAndSecretData,
-		CheckApprovedCondition:   !disableApprovedCheck,
-		Clock:                    clock.RealClock{},
+		Client:                            mgr.GetClient(),
+		ConfigClient:                      configClient,
+		Scheme:                            mgr.GetScheme(),
+		ClusterResourceNamespace:          clusterResourceNamespace,
+		SignerBuilder:                     signer.EjbcaSignerFromIssuerAndSecretData,
+		CheckApprovedCondition:            !disableApprovedCheck,
+		Clock:                             clock.RealClock{},
+		SecretAccessGrantedAtClusterLevel: secretAccessGrantedAtClusterLevel,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CertificateRequest")
 		os.Exit(1)

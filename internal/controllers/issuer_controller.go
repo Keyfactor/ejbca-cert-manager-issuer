@@ -48,16 +48,19 @@ var (
 // IssuerReconciler reconciles a Issuer object
 type IssuerReconciler struct {
 	client.Client
-	Kind                     string
-	Scheme                   *runtime.Scheme
-	ClusterResourceNamespace string
-	HealthCheckerBuilder     signer.HealthCheckerBuilder
+	ConfigClient                      issuerutil.ConfigClient
+	Kind                              string
+	Scheme                            *runtime.Scheme
+	ClusterResourceNamespace          string
+	HealthCheckerBuilder              signer.HealthCheckerBuilder
+	SecretAccessGrantedAtClusterLevel bool
 }
 
 //+kubebuilder:rbac:groups=ejbca-issuer.keyfactor.com,resources=issuers;clusterissuers,verbs=get;list;watch
 //+kubebuilder:rbac:groups=ejbca-issuer.keyfactor.com,resources=issuers/status;clusterissuers/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=ejbca-issuer.keyfactor.com,resources=issuers/finalizers,verbs=update
 
+// newIssuer returns a new Issuer or ClusterIssuer object
 func (r *IssuerReconciler) newIssuer() (client.Object, error) {
 	issuerGVK := ejbcaissuer.GroupVersion.WithKind(r.Kind)
 	ro, err := r.Scheme.New(issuerGVK)
@@ -67,12 +70,13 @@ func (r *IssuerReconciler) newIssuer() (client.Object, error) {
 	return ro.(client.Object), nil
 }
 
+// Reconcile reconciles and updates the status of an Issuer or ClusterIssuer object
 func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	issuer, err := r.newIssuer()
 	if err != nil {
-		log.Error(err, "Unrecognised issuer type")
+		log.Error(err, "Unrecognized issuer type")
 		return ctrl.Result{}, nil
 	}
 	if err := r.Get(ctx, req.NamespacedName, issuer); err != nil {
@@ -124,8 +128,16 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 		return ctrl.Result{}, nil
 	}
 
+	// If SecretAccessGrantedAtClusterLevel is false, we always look for the Secret in the same namespace as the Issuer
+	if !r.SecretAccessGrantedAtClusterLevel {
+		secretName.Namespace = r.ClusterResourceNamespace
+	}
+
+	// Set the context on the config client
+	r.ConfigClient.SetContext(ctx)
+
 	var authSecret corev1.Secret
-	if err := r.Get(ctx, secretName, &authSecret); err != nil {
+	if err := r.ConfigClient.GetSecret(secretName, &authSecret); err != nil {
 		return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %v", errGetAuthSecret, secretName, err)
 	}
 
@@ -138,7 +150,7 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	var caSecret corev1.Secret
 	if issuerSpec.CaBundleSecretName != "" {
 		// If the CA secret name is not specified, we will not attempt to retrieve it
-		err = r.Get(ctx, caSecretName, &caSecret)
+		err = r.ConfigClient.GetSecret(caSecretName, &caSecret)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %v", errGetCaSecret, caSecretName, err)
 		}
@@ -157,6 +169,8 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	return ctrl.Result{RequeueAfter: defaultHealthCheckInterval}, nil
 }
 
+// SetupWithManager registers the IssuerReconciler with the controller manager.
+// It configures controller-runtime to reconcile Keyfactor EJBCA Issuers/ClusterIssuers in the cluster.
 func (r *IssuerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	issuerType, err := r.newIssuer()
 	if err != nil {

@@ -49,9 +49,10 @@ type HealthCheckerBuilder func(context.Context, *ejbcaissuer.IssuerSpec, map[str
 type EjbcaSignerBuilder func(context.Context, *ejbcaissuer.IssuerSpec, map[string]string, map[string][]byte, map[string][]byte) (Signer, error)
 
 type Signer interface {
-	Sign(context.Context, []byte) ([]byte, error)
+	Sign(context.Context, []byte) ([]byte, []byte, error)
 }
 
+// EjbcaHealthCheckerFromIssuerAndSecretData creates a HealthChecker from an IssuerSpec and a map of secret data
 func EjbcaHealthCheckerFromIssuerAndSecretData(ctx context.Context, spec *ejbcaissuer.IssuerSpec, clientCertSecretData map[string][]byte, caCertSecretData map[string][]byte) (HealthChecker, error) {
 	signer := ejbcaSigner{}
 
@@ -65,6 +66,7 @@ func EjbcaHealthCheckerFromIssuerAndSecretData(ctx context.Context, spec *ejbcai
 	return &signer, nil
 }
 
+// ejbcaSignerFromIssuerAndSecretData creates a Signer from an IssuerSpec and a map of secret data
 func ejbcaSignerFromIssuerAndSecretData(ctx context.Context, spec *ejbcaissuer.IssuerSpec, annotations map[string]string, clientCertSecretData map[string][]byte, caCertSecretData map[string][]byte) (*ejbcaSigner, error) {
 	signLog := log.FromContext(ctx)
 	signer := ejbcaSigner{}
@@ -116,10 +118,12 @@ func ejbcaSignerFromIssuerAndSecretData(ctx context.Context, spec *ejbcaissuer.I
 	return &signer, nil
 }
 
+// EjbcaSignerFromIssuerAndSecretData is a wrapper around ejbcaSignerFromIssuerAndSecretData that returns a Signer interface
 func EjbcaSignerFromIssuerAndSecretData(ctx context.Context, spec *ejbcaissuer.IssuerSpec, annotations map[string]string, clientCertSecretData map[string][]byte, caCertSecretData map[string][]byte) (Signer, error) {
 	return ejbcaSignerFromIssuerAndSecretData(ctx, spec, annotations, clientCertSecretData, caCertSecretData)
 }
 
+// Check checks the status of the EJBCA API
 func (s *ejbcaSigner) Check() error {
 	// Check EJBCA API status
 	_, _, err := s.client.V1CertificateApi.Status2(context.Background()).Execute()
@@ -130,6 +134,7 @@ func (s *ejbcaSigner) Check() error {
 	return nil
 }
 
+// getEndEntityName determines the end entity name to use for the EJBCA request
 func (s *ejbcaSigner) getEndEntityName(ctx context.Context, csr *x509.CertificateRequest) string {
 	eeLog := log.FromContext(ctx)
 	eeName := ""
@@ -192,12 +197,13 @@ func (s *ejbcaSigner) getEndEntityName(ctx context.Context, csr *x509.Certificat
 	return eeName
 }
 
-func (s *ejbcaSigner) Sign(ctx context.Context, csrBytes []byte) ([]byte, error) {
+// Sign signs a CSR with EJBCA
+func (s *ejbcaSigner) Sign(ctx context.Context, csrBytes []byte) ([]byte, []byte, error) {
 	k8sLog := log.FromContext(ctx)
 
 	csr, err := parseCSR(csrBytes)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Log the common metadata of the CSR
@@ -206,7 +212,7 @@ func (s *ejbcaSigner) Sign(ctx context.Context, csrBytes []byte) ([]byte, error)
 	// If the CSR has a CommonName, use it as the EJBCA end entity name
 	ejbcaEeName := s.getEndEntityName(ctx, csr)
 	if ejbcaEeName == "" {
-		return nil, errors.New("failed to determine the EJBCA end entity name")
+		return nil, nil, errors.New("failed to determine the EJBCA end entity name")
 	}
 
 	k8sLog.Info(fmt.Sprintf("Using or Creating EJBCA End Entity called %q", ejbcaEeName))
@@ -227,7 +233,7 @@ func (s *ejbcaSigner) Sign(ctx context.Context, csrBytes []byte) ([]byte, error)
 	// Enroll certificate
 	certificateObject, _, err := s.client.V1CertificateApi.EnrollPkcs10Certificate(context.Background()).EnrollCertificateRestRequest(enroll).Execute()
 	if err != nil {
-		detail := fmt.Sprintf("error enrolling certificate with EJBCA. verify that the certificate profile name, end entity profile name, and certificate authority name are appropriate for the certificate request.")
+		detail := "error enrolling certificate with EJBCA. verify that the certificate profile name, end entity profile name, and certificate authority name are appropriate for the certificate request."
 
 		var bodyError *ejbca.GenericOpenAPIError
 		ok := errors.As(err, &bodyError)
@@ -237,21 +243,22 @@ func (s *ejbcaSigner) Sign(ctx context.Context, csrBytes []byte) ([]byte, error)
 
 		k8sLog.Error(err, detail)
 
-		return nil, fmt.Errorf(detail)
+		return nil, nil, fmt.Errorf(detail)
 	}
 
 	certAndChain, _, err := getCertificatesFromEjbcaObject(*certificateObject)
 	if err != nil {
 		k8sLog.Error(err, fmt.Sprintf("error getting certificate from EJBCA response: %s", err.Error()))
-		return nil, err
+		return nil, nil, err
 	}
 
-	k8sLog.Info(fmt.Sprintf("Successfully enrolled certificate with EJBCA"))
+	k8sLog.Info("Successfully enrolled certificate with EJBCA")
 
 	// Return the certificate and chain in PEM format
 	return compileCertificatesToPemBytes(certAndChain)
 }
 
+// createClientFromSecretMap creates an EJBCA API client from a map of secret data
 func createClientFromSecretMap(ctx context.Context, hostname string, clientCertSecretData map[string][]byte, caCertSecretData map[string][]byte) (*ejbca.APIClient, error) {
 	var err error
 	k8sLog := log.FromContext(ctx)
@@ -323,7 +330,7 @@ func createClientFromSecretMap(ctx context.Context, hostname string, clientCertS
 	ejbcaConfig.SetClientCertificate(&tlsCert)
 
 	// If the CA certificate is provided, add it to the EJBCA configuration
-	if caCertSecretData != nil && len(caCertSecretData) > 0 {
+	if len(caCertSecretData) > 0 {
 		// There is no requirement that the CA certificate is stored under a specific key in the secret, so we can just iterate over the map
 		var caCertBytes []byte
 		for _, caCertBytes = range caCertSecretData {
@@ -425,22 +432,34 @@ func getCertificatesFromEjbcaObject(ejbcaCert ejbca.CertificateRestResponse) ([]
 
 // compileCertificatesToPemString takes a slice of x509 certificates and returns a string containing the certificates in PEM format
 // If an error occurred, the function logs the error and continues to parse the remaining objects.
-func compileCertificatesToPemBytes(certificates []*x509.Certificate) ([]byte, error) {
-	var pemBuilder strings.Builder
+func compileCertificatesToPemBytes(certificates []*x509.Certificate) ([]byte, []byte, error) {
+	var leaf strings.Builder
+	var chain strings.Builder
 
-	for _, certificate := range certificates {
-		err := pem.Encode(&pemBuilder, &pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: certificate.Raw,
-		})
-		if err != nil {
-			return make([]byte, 0, 0), err
+	for i, certificate := range certificates {
+		if i == 0 {
+			err := pem.Encode(&leaf, &pem.Block{
+				Type:  "CERTIFICATE",
+				Bytes: certificate.Raw,
+			})
+			if err != nil {
+				return make([]byte, 0), make([]byte, 0), err
+			}
+		} else {
+			err := pem.Encode(&chain, &pem.Block{
+				Type:  "CERTIFICATE",
+				Bytes: certificate.Raw,
+			})
+			if err != nil {
+				return make([]byte, 0), make([]byte, 0), err
+			}
 		}
 	}
 
-	return []byte(pemBuilder.String()), nil
+	return []byte(leaf.String()), []byte(chain.String()), nil
 }
 
+// decodePEMBytes takes a byte array containing PEM encoded data and returns a slice of PEM blocks and a private key PEM block
 func decodePEMBytes(buf []byte) ([]*pem.Block, *pem.Block) {
 	var privKey *pem.Block
 	var certificates []*pem.Block
@@ -458,10 +477,12 @@ func decodePEMBytes(buf []byte) ([]*pem.Block, *pem.Block) {
 	return certificates, privKey
 }
 
+// ptr is a helper function that returns a pointer to the provided value
 func ptr[T any](v T) *T {
 	return &v
 }
 
+// generateRandomString generates a random string of length n
 func generateRandomString(length int) string {
 	rand.Seed(time.Now().UnixNano())
 	letters := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")

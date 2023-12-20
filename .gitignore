@@ -16,4 +16,7 @@ vendor/
 .idea
 bin
 
+# Helm
+*.tgz
+
 .DS_Store
