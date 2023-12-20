@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Keyfactor Command Authors.
+Copyright © 2023 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,9 +19,6 @@ package controllers
 import (
 	"context"
 	"errors"
-	"testing"
-	"time"
-
 	cmutil "github.com/cert-manager/cert-manager/pkg/api/util"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
@@ -40,22 +37,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"testing"
 
 	ejbcaissuer "github.com/Keyfactor/ejbca-issuer/api/v1alpha1"
 	"github.com/Keyfactor/ejbca-issuer/internal/issuer/signer"
 )
 
 var (
-	fixedClockStart = time.Date(2021, time.January, 1, 1, 0, 0, 0, time.UTC)
-	fixedClock      = clock.RealClock{}
+	fixedClock = clock.RealClock{}
 )
 
 type fakeSigner struct {
 	errSign error
 }
 
-func (o *fakeSigner) Sign(context.Context, []byte) ([]byte, error) {
-	return []byte("fake signed certificate"), o.errSign
+func (o *fakeSigner) Sign(context.Context, []byte) ([]byte, []byte, error) {
+	return []byte("fake signed certificate"), []byte("fake chain"), o.errSign
 }
 
 func TestCertificateRequestReconcile(t *testing.T) {
@@ -605,12 +602,14 @@ func TestCertificateRequestReconcile(t *testing.T) {
 				WithObjects(tc.objects...).
 				Build()
 			controller := CertificateRequestReconciler{
-				Client:                   fakeClient,
-				Scheme:                   scheme,
-				ClusterResourceNamespace: tc.clusterResourceNamespace,
-				SignerBuilder:            tc.Builder,
-				CheckApprovedCondition:   true,
-				Clock:                    fixedClock,
+				Client:                            fakeClient,
+				ConfigClient:                      NewFakeConfigClient(fakeClient),
+				Scheme:                            scheme,
+				ClusterResourceNamespace:          tc.clusterResourceNamespace,
+				SignerBuilder:                     tc.Builder,
+				CheckApprovedCondition:            true,
+				Clock:                             fixedClock,
+				SecretAccessGrantedAtClusterLevel: true,
 			}
 			result, err := controller.Reconcile(
 				ctrl.LoggerInto(context.TODO(), logrtesting.NewTestLogger(t)),

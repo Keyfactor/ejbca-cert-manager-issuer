@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The Keyfactor Command Authors.
+Copyright © 2023 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -126,7 +126,7 @@ func TestIssuerReconcile(t *testing.T) {
 			expectedReadyConditionStatus: ejbcaissuer.ConditionTrue,
 			expectedResult:               ctrl.Result{RequeueAfter: defaultHealthCheckInterval},
 		},
-		"issuer-kind-unrecognised": {
+		"issuer-kind-Unrecognized": {
 			kind: "UnrecognizedType",
 			name: types.NamespacedName{Namespace: "ns1", Name: "issuer1"},
 		},
@@ -251,11 +251,13 @@ func TestIssuerReconcile(t *testing.T) {
 				tc.kind = "Issuer"
 			}
 			controller := IssuerReconciler{
-				Kind:                     tc.kind,
-				Client:                   fakeClient,
-				Scheme:                   scheme,
-				HealthCheckerBuilder:     tc.healthCheckerBuilder,
-				ClusterResourceNamespace: tc.clusterResourceNamespace,
+				Kind:                              tc.kind,
+				Client:                            fakeClient,
+				ConfigClient:                      NewFakeConfigClient(fakeClient),
+				Scheme:                            scheme,
+				HealthCheckerBuilder:              tc.healthCheckerBuilder,
+				ClusterResourceNamespace:          tc.clusterResourceNamespace,
+				SecretAccessGrantedAtClusterLevel: true,
 			}
 			result, err := controller.Reconcile(
 				ctrl.LoggerInto(context.TODO(), logrtesting.NewTestLogger(t)),

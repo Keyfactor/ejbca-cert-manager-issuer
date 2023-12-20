@@ -35,12 +35,6 @@ type IssuerSpec struct {
 	// namespace that the controller runs in).
 	EjbcaSecretName string `json:"ejbcaSecretName"`
 
-	// A reference to a Secret in the same namespace as the referent. If the
-	// referent is a ClusterIssuer, the reference instead refers to the resource
-	// with the given name in the configured 'cluster resource namespace', which
-	// is set as a flag on the controller component (and defaults to the
-	// namespace that the controller runs in).
-
 	// The name of the secret containing the CA bundle to use when verifying
 	// EJBCA's server certificate. If specified, the CA bundle will be added to
 	// the client trust roots for the EJBCA issuer.
