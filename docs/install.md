@@ -32,24 +32,9 @@ kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/
 
 ###### :pushpin: Running the static cert-manager configuration is not recommended for production use. For more information, see [Installing cert-manager](https://cert-manager.io/docs/installation/).
 
-### Building the Container Image
-
-The cert-manager external issuer for Keyfactor EJBCA is distributed as source code, and the container must be built manually. The container image can be built using the following command:
-```shell
-make docker-build DOCKER_REGISTRY=<your container registry> DOCKER_IMAGE_NAME=keyfactor/ejbca-cert-manager-issuer
-```
-
-###### :pushpin: The container image can be built using Docker Buildx by running `make docker-buildx`. This will build the image for all supported platforms.
-
-To push the container image to a container registry, run the following command:
-```shell
-docker login <your container registry>
-make docker-push DOCKER_REGISTRY=<your container registry> DOCKER_IMAGE_NAME=keyfactor/ejbca-cert-manager-issuer
-```
-
 ### Installation from Helm Chart
 
-The cert-manager external issuer for Keyfactor EJBCA can also be installed using a Helm chart. The chart is available in the [EJBCA cert-manager Helm repository](https://keyfactor.github.io/ejbca-cert-manager-issuer/).
+The cert-manager external issuer for Keyfactor EJBCA is installed using a Helm chart. The chart is available in the [EJBCA cert-manager Helm repository](https://keyfactor.github.io/ejbca-cert-manager-issuer/).
 
 1. Add the Helm repository:
 
@@ -64,8 +49,6 @@ The cert-manager external issuer for Keyfactor EJBCA can also be installed using
     helm install ejbca-cert-manager-issuer ejbca-issuer/ejbca-cert-manager-issuer \
         --namespace ejbca-issuer-system \
         --create-namespace \
-        --set image.repository=<your container registry>/keyfactor/ejbca-cert-manager-issuer \
-        --set image.tag=<tag>
         # --set image.pullPolicy=Never # Only required if using a local image
     ```
 
@@ -75,8 +58,6 @@ The cert-manager external issuer for Keyfactor EJBCA can also be installed using
         helm install ejbca-cert-manager-issuer ejbca-issuer/ejbca-cert-manager-issuer \
             --namespace ejbca-issuer-system \
             --create-namespace \
-            --set image.repository=<your container registry>/keyfactor/ejbca-cert-manager-issuer \
-            --set image.tag=<tag>
             --set replicaCount=2
         ```
 
@@ -84,10 +65,6 @@ The cert-manager external issuer for Keyfactor EJBCA can also be installed using
 
         ```yaml
         cat <<EOF > override.yaml
-        image:
-            repository: <your container registry>/keyfactor/ejbca-cert-manager-issuer
-            pullPolicy: Never
-            tag: "latest"
         secretConfig:
             useClusterRoleForSecretAccess: true
         EOF

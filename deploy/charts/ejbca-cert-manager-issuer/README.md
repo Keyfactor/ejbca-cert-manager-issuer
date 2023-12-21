@@ -29,8 +29,6 @@ helm repo update
 helm install ejbca-cert-manager-issuer ejbca-issuer/ejbca-cert-manager-issuer \
     --namespace ejbca-issuer-system \
     --create-namespace \
-    --set image.repository=<your container registry>/keyfactor/ejbca-cert-manager-issuer \
-    --set image.tag=<tag>
     # --set image.pullPolicy=Never # Only required if using a local image
 ```
 
@@ -40,8 +38,6 @@ Modifications can be made by overriding the default values in the `values.yaml` 
 helm install ejbca-cert-manager-issuer ejbca-issuer/ejbca-cert-manager-issuer \
     --namespace ejbca-issuer-system \
     --create-namespace \
-    --set image.repository=<your container registry>/keyfactor/ejbca-cert-manager-issuer \
-    --set image.tag=<tag>
     --set replicaCount=2
 ```
 
@@ -49,10 +45,6 @@ Modifications can also be made by modifying the `values.yaml` file directly. For
 
 ```yaml
 cat <<EOF > override.yaml
-image:
-    repository: <your container registry>/keyfactor/ejbca-cert-manager-issuer
-    pullPolicy: Never
-    tag: "latest"
 secretConfig:
     useClusterRoleForSecretAccess: true
 EOF
@@ -87,7 +79,7 @@ The following table lists the configurable parameters of the `ejbca-cert-manager
 | `podAnnotations`                             | Annotations for the pod                                                                             | `{}`                                                         |
 | `podSecurityContext.runAsNonRoot`            | Run pod as non-root                                                                                 | `true`                                                       |
 | `securityContext`                            | Security context for the pod                                                                        | `{}` (with commented out options)                            |
-| `secureMetrics.enabled`                      | Enable secure metrics via the Kube RBAC Proy                                                        | `false`                                                      |
+| `metrics.secure`                      | Enable secure metrics via the Kube RBAC Proy                                                        | `false`                                                      |
 | `resources`                                  | CPU/Memory resource requests/limits                                                                 | `{}` (with commented out options)                            |
 | `nodeSelector`                               | Node labels for pod assignment                                                                      | `{}`                                                         |
 | `tolerations`                                | Tolerations for pod assignment                                                                      | `[]`                                                         |

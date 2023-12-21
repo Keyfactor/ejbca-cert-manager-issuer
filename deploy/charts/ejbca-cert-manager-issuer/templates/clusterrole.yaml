@@ -45,7 +45,7 @@ rules:
       - issuers/finalizers
     verbs:
       - update
-{{- if .Values.secureMetrics.enabled }}
+{{- if .Values.metrics.secure }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
