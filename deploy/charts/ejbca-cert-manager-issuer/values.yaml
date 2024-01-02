@@ -4,7 +4,7 @@
 replicaCount: 1
 
 image:
-  repository: m8rmclarenkf/ejbca-cert-manager-external-issuer-controller
+  repository: keyfactor/ejbca-cert-manager-issuer
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
@@ -13,10 +13,24 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
-# Whether to enable and configure the kube-rbac-proxy sidecar for authorized and authenticated
-# use of the /metrics endpoint by Prometheus.
-secureMetrics:
-  enabled: false
+metrics:
+  # Whether to enable and configure the kube-rbac-proxy sidecar for authorized and authenticated
+  # use of the /metrics endpoint by Prometheus.
+  secure: false
+  # The address and port to expose the metrics endpoint. This will only be configured as a container
+  # port; you will need to configure your Prometheus instance to scrape this endpoint.
+  # Example: ":8080" (default)
+  # Example: "127.0.0.1:8080" (if secure: true)
+  metricsAddress: ":8080"
+
+# Define the ports that the controller manager container exposes.
+# If you change this, you will need to configure your Prometheus instance to scrape these metrics.
+# If metrics.secure is true, Prometheus must scrape port 8443 with HTTPS.
+containerPorts:
+  # Values must be in the format expected by the ports field of the Kubernetes v1 core API type ContainerPort.
+  - containerPort: 8080
+    name: http-metrics
+    protocol: TCP
 
 secretConfig:
   # If true, when using Issuer resources, the credential secret must be created in the same namespace as the

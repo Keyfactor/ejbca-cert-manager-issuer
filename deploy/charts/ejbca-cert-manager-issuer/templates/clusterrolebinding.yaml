@@ -12,7 +12,7 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "ejbca-cert-manager-issuer.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
-{{- if .Values.secureMetrics.enabled }}
+{{- if .Values.metrics.secure }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

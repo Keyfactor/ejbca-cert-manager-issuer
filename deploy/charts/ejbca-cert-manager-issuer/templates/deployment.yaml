@@ -26,7 +26,7 @@ spec:
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
-        {{- if .Values.secureMetrics.enabled }}
+        {{- if .Values.metrics.secure }}
         - args:
             - --secure-listen-address=0.0.0.0:8443
             - --upstream=http://127.0.0.1:8080/
@@ -53,7 +53,7 @@ spec:
         {{- end }}
         - args:
             - --health-probe-bind-address=:8081
-            - --metrics-bind-address=127.0.0.1:8080
+            - --metrics-bind-address={{ .Values.metrics.metricsAddress }}
             - --leader-elect
             {{- if .Values.secretConfig.useClusterRoleForSecretAccess}}
             - --secret-access-granted-at-cluster-level
@@ -75,6 +75,10 @@ spec:
               port: 8081
             initialDelaySeconds: 5
             periodSeconds: 10
+          {{- with .Values.containerPorts }}
+          ports:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           securityContext:
