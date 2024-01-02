@@ -1,43 +1,68 @@
-name: helm_release
+name: Build and Release Helm Chart
 on:
   pull_request:
     branches:
       - 'v*'
     types:
+      # action should run when the pull request is closed
+      # (regardless of whether it was merged or just closed)
       - closed
+      # Make sure the action runs every time new commits are
+      # pushed to the pull request's branch
+      - synchronize
+
 jobs:
   helm:
     runs-on: ubuntu-latest
     if: github.event.pull_request.merged == true
     steps:
-      - name: Extract Version Tag
-        id: extract_version
-        run: /bin/bash -c 'echo ::set-output name=VERSION::$(echo ${GITHUB_REF##*/} | cut -c2-)'
+      - name: Set IMAGE_NAME
+        run: |
+          echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
 
-      - name: Checkout
-        uses: actions/checkout@v3
+      # Checkout code
+      # https://github.com/actions/checkout
+      - name: Checkout code
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+
+      # Extract metadata (tags, labels) to use in Helm chart
+      # https://github.com/docker/metadata-action
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      # Set version from DOCKER_METADATA_OUTPUT_VERSION as environment variable
+      - name: Set Version
+        run: |
+          echo "VERSION=${DOCKER_METADATA_OUTPUT_VERSION:1}" >> $GITHUB_ENV
 
       # Change version and appVersion in Chart.yaml to the tag in the closed PR
       - name: Update Helm App/Chart Version
         shell: bash
         run: |
-          sed -i "s/^version: .*/version: ${{ steps.extract_version.outputs.VERSION }}/g" deploy/charts/ejbca-cert-manager-issuer/Chart.yaml
-          sed -i "s/^appVersion: .*/appVersion: \"${{ steps.extract_version.outputs.VERSION }}\"/g" deploy/charts/ejbca-cert-manager-issuer/Chart.yaml
+          sed -i "s/^version: .*/version: ${{ env.VERSION }}/g" deploy/charts/ejbca-cert-manager-issuer/Chart.yaml
+          sed -i "s/^appVersion: .*/appVersion: \"${{ env.DOCKER_METADATA_OUTPUT_VERSION }}\"/g" deploy/charts/ejbca-cert-manager-issuer/Chart.yaml
 
+      # Setup Helm
+      # https://github.com/Azure/setup-helm
+      - name: Install Helm
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Helm requires an ident name to be set for chart-releaser to work
       - name: Configure Git
         run: |
           git config user.name "$GITHUB_ACTOR"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
 
-      - name: Install Helm
-        uses: azure/setup-helm@v3
-
+      # Build and release Helm chart to GitHub Pages
+      # https://github.com/helm/chart-releaser-action
       - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.5.0
+        uses: helm/chart-releaser-action@be16258da8010256c6e82849661221415f031968 # v1.5.0
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         with:
-          pages_branch: gh-pages
           charts_dir: deploy/charts
-          mark_as_latest: true
-          packages_with_index: true
