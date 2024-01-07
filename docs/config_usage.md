@@ -53,7 +53,6 @@ metadata:
   name: issuer-sample
 spec:
   hostname: ""
-  ejbcaBundleSecretName: ""
   certificateAuthorityName: ""
   certificateProfileName: ""
   endEntityProfileName: ""
