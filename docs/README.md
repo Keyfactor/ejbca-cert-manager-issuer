@@ -18,10 +18,10 @@ The EJBCA Issuer for cert-manager requires the following API endpoints:
 
 ## Docs
 
-* [Installation](docs/install.md)
+* [Installation](install.md)
 * Usage
-    * [Usage](docs/config_usage.md)
-    * [Customization](docs/annotations.md)
-    * [End Entity Name Selection](docs/endentitynamecustomization.md)
-* [Testing the Source](docs/testing.md)
-* [License](LICENSE)
+    * [Usage](config_usage.md)
+    * [Customization](annotations.md)
+    * [End Entity Name Selection](endentitynamecustomization.md)
+* [Testing the Source](testing.md)
+* [License](../LICENSE)
