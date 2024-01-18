@@ -4,6 +4,7 @@ metadata:
   labels:
     {{- include "ejbca-cert-manager-issuer.labels" . | nindent 4 }}
   name: {{ include "ejbca-cert-manager-issuer.name" . }}-leader-election-role
+  namespace: {{ .Release.Namespace }}
 rules:
   - apiGroups:
       - coordination.k8s.io
