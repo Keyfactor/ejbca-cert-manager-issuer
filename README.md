@@ -32,4 +32,4 @@ This tool is open source and community-supported, meaning that **no SLA** is app
 * If you want to contribute actual bug fixes or proposed enhancements, see the [contribution guidelines](https://github.com/Keyfactor/ejbca-k8s-csr-signer/blob/main/CONTRIBUTING.md) and use the **[Pull requests](../../pulls)** tab.
 
 ## License
-EJBCA Community is licensed under the LGPL license, please see **[LICENSE](LICENSE)**. 
+This tool is licensed under this **[LICENSE](LICENSE)**. 
