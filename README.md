@@ -29,7 +29,7 @@ We welcome contributions.
 This tool is open source and community-supported, meaning that **no SLA** is applicable.
 
 * To report a problem or suggest a new feature, use the **[Issues](../../issues)** tab.
-* If you want to contribute actual bug fixes or proposed enhancements, see the [contribution guidelines](https://github.com/Keyfactor/ejbca-k8s-csr-signer/blob/main/CONTRIBUTING.md) and use the **[Pull requests](../../pulls)** tab.
+* If you want to contribute actual bug fixes or proposed enhancements, see the **[contributing guidelines](CONTRIBUTING.md)** and use the **[Pull requests](../../pulls)** tab.
 
 ## License
 This tool is licensed under this **[LICENSE](LICENSE)**. 
