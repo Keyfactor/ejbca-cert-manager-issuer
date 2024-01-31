@@ -16,13 +16,6 @@ Cert-manager is a native Kubernetes certificate management controller that allow
   * [End Entity Name Selection](docs/endentitynamecustomization.md)
 * To test the tool, see [Testing the Source](docs/testing.md).
 
-### Prerequisites
-The EJBCA Issuer for cert-manager requires the EJBCA REST API with the following API endpoints:
-* `/ejbca-rest-api/v1/certificate/pkcs10enroll`
-* `/ejbca/ejbca-rest-api/v1/certificate/status`
-
-For more prerequisites, see [Installation requirements](docs/install.md#requirements).
-
 ## Community supported
 We welcome contributions.
 
