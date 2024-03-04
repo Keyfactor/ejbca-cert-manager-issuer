@@ -25,4 +25,4 @@ This tool is open source and community-supported, meaning that **no SLA** is app
 * If you want to contribute actual bug fixes or proposed enhancements, see the **[contributing guidelines](CONTRIBUTING.md)** and use the **[Pull requests](../../pulls)** tab.
 
 ## License
-This tool is licensed under this **[LICENSE](LICENSE)**. 
+For license information, see **[LICENSE](LICENSE)**. 
