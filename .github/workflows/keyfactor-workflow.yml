@@ -17,3 +17,5 @@ jobs:
       APPROVE_README_PUSH: ${{ secrets.APPROVE_README_PUSH}}
       gpg_key: ${{ secrets.KF_GPG_PRIVATE_KEY }}
       gpg_pass: ${{ secrets.KF_GPG_PASSPHRASE }}
+      docker-user: ${{ secrets.DOCKER_USER }}
+      docker-token:  ${{ secrets.DOCKER_PWD }}
