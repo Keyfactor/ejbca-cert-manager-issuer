@@ -7,7 +7,8 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/Keyfactor/ejbca-cert-manager-issuer)](https://goreportcard.com/report/github.com/Keyfactor/ejbca-cert-manager-issuer)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
 
-### Requirements
+### Prerequisites
+Before starting, ensure that the following requirements are met
 * [Git](https://git-scm.com/)
 * [Make](https://www.gnu.org/software/make/)
 * [Docker](https://docs.docker.com/engine/install/) >= v20.10.0
@@ -17,8 +18,12 @@
 * [Keyfactor EJBCA](https://www.keyfactor.com/products/ejbca-enterprise/) >= v7.7
 * [cert-manager](https://cert-manager.io/docs/installation/) >= v1.11.0
 * [cmctl](https://cert-manager.io/docs/reference/cmctl/)
+* Keyfactor EJBCA is properly configured according to the [product docs](https://software.keyfactor.com/Content/MasterTopics/Home.htm). 
+* EJBCA REST API with the following API endpoints:
+    * `/ejbca-rest-api/v1/certificate/pkcs10enroll`
+    * `/ejbca/ejbca-rest-api/v1/certificate/status`
 
-Before starting, ensure that all of the above requirements are met, and that Keyfactor EJBCA is properly configured according to the [product docs](https://software.keyfactor.com/Content/MasterTopics/Home.htm). Additionally, verify that at least one Kubernetes node is running by running the following command:
+Additionally, verify that at least one Kubernetes node is running by running the following command:
 
 ```shell
 kubectl get nodes

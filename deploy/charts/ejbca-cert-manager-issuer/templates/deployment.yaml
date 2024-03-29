@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "ejbca-cert-manager-issuer.fullname" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "ejbca-cert-manager-issuer.labels" . | nindent 4 }}
 spec:
