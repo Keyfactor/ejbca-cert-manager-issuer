@@ -2,7 +2,7 @@ name: Build and Release Helm Chart
 on:
   pull_request:
     branches:
-      - 'v*'
+      - 'release-*'
     types:
       # action should run when the pull request is closed
       # (regardless of whether it was merged or just closed)
@@ -36,14 +36,14 @@ jobs:
       # Set version from DOCKER_METADATA_OUTPUT_VERSION as environment variable
       - name: Set Version
         run: |
-          echo "VERSION=${DOCKER_METADATA_OUTPUT_VERSION:1}" >> $GITHUB_ENV
+          echo "VERSION=${DOCKER_METADATA_OUTPUT_VERSION:8}.0" >> $GITHUB_ENV # Eventually will build this into Keyfactor bootstrap
 
       # Change version and appVersion in Chart.yaml to the tag in the closed PR
       - name: Update Helm App/Chart Version
         shell: bash
         run: |
-          sed -i "s/^version: .*/version: ${{ env.VERSION }}/g" deploy/charts/ejbca-cert-manager-issuer/Chart.yaml
-          sed -i "s/^appVersion: .*/appVersion: \"${{ env.DOCKER_METADATA_OUTPUT_VERSION }}\"/g" deploy/charts/ejbca-cert-manager-issuer/Chart.yaml
+          sed -i "s/^version: .*/version: ${{ env.VERSION }}/g" deploy/charts/ejbca-k8s-csr-signer/Chart.yaml
+          sed -i "s/^appVersion: .*/appVersion: \"v${{ env.VERSION }}\"/g" deploy/charts/ejbca-k8s-csr-signer/Chart.yaml
 
       # Setup Helm
       # https://github.com/Azure/setup-helm

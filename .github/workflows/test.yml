@@ -52,9 +52,8 @@ jobs:
           cache: true
 
       # Deploy an ephemeral EJBCA and SignServer for CI testing
-      - uses: keyfactor/EJBCA-SignServer-K8sForge@main
+      - uses: m8rmclaren/ejbca-signserver-k8s@main
         with:
-          token: ${{ secrets.V2BUILDTOKEN }}
           deploy-k8s: 'true'
           deploy-nginx-ingress: 'true'
 
