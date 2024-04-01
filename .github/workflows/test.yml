@@ -61,7 +61,7 @@ jobs:
       - name: Merge client certificate and client key
         shell: bash
         run: |
-          cat ${{ secrets.EJBCA_CLIENT_CERT_KEY_PATH }} >> ${{ secrets.EJBCA_CLIENT_CERT_PATH }}
+          cat ${{ env.EJBCA_CLIENT_CERT_KEY_PATH }} >> ${{ env.EJBCA_CLIENT_CERT_PATH }}
 
       # Run Go tests
       - name: Run go test
