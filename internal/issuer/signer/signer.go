@@ -24,12 +24,16 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/Keyfactor/ejbca-go-client-sdk/api/ejbca"
-	ejbcaissuer "github.com/Keyfactor/ejbca-issuer/api/v1alpha1"
 	"math/rand"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strings"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	ejbcaissuer "github.com/Keyfactor/ejbca-issuer/api/v1alpha1"
+	cmpki "github.com/cert-manager/cert-manager/pkg/util/pki"
+
+	"github.com/Keyfactor/ejbca-go-client-sdk/api/ejbca"
 )
 
 type ejbcaSigner struct {
@@ -433,30 +437,12 @@ func getCertificatesFromEjbcaObject(ejbcaCert ejbca.CertificateRestResponse) ([]
 // compileCertificatesToPemString takes a slice of x509 certificates and returns a string containing the certificates in PEM format
 // If an error occurred, the function logs the error and continues to parse the remaining objects.
 func compileCertificatesToPemBytes(certificates []*x509.Certificate) ([]byte, []byte, error) {
-	var leaf strings.Builder
-	var chain strings.Builder
-
-	for i, certificate := range certificates {
-		if i == 0 {
-			err := pem.Encode(&leaf, &pem.Block{
-				Type:  "CERTIFICATE",
-				Bytes: certificate.Raw,
-			})
-			if err != nil {
-				return make([]byte, 0), make([]byte, 0), err
-			}
-		} else {
-			err := pem.Encode(&chain, &pem.Block{
-				Type:  "CERTIFICATE",
-				Bytes: certificate.Raw,
-			})
-			if err != nil {
-				return make([]byte, 0), make([]byte, 0), err
-			}
-		}
+	bundlePEM, err := cmpki.ParseSingleCertificateChain(certificates)
+	if err != nil {
+		return make([]byte, 0), make([]byte, 0), err
 	}
 
-	return []byte(leaf.String()), []byte(chain.String()), nil
+	return bundlePEM.ChainPEM, bundlePEM.CAPEM, nil
 }
 
 // decodePEMBytes takes a byte array containing PEM encoded data and returns a slice of PEM blocks and a private key PEM block
