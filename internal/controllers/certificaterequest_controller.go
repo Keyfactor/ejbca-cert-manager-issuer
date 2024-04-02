@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/Keyfactor/ejbca-issuer/internal/issuer/signer"
 	issuerutil "github.com/Keyfactor/ejbca-issuer/internal/issuer/util"
 	cmutil "github.com/cert-manager/cert-manager/pkg/api/util"
@@ -236,12 +237,12 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, fmt.Errorf("%w: %v", errSignerBuilder, err)
 	}
 
-	leaf, chain, err := ejbcaSigner.Sign(ctx, certificateRequest.Spec.Request)
+	chain, ca, err := ejbcaSigner.Sign(ctx, certificateRequest.Spec.Request)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("%w: %v", errSignerSign, err)
 	}
-	certificateRequest.Status.Certificate = leaf
-	certificateRequest.Status.CA = chain
+	certificateRequest.Status.Certificate = chain
+	certificateRequest.Status.CA = ca
 
 	issuerutil.SetCertificateRequestReadyCondition(ctx, &certificateRequest, cmmeta.ConditionTrue, cmapi.CertificateRequestReasonIssued, "Signed")
 	return ctrl.Result{}, nil

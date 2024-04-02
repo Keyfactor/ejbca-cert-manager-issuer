@@ -1,3 +1,11 @@
+# v1.4.0
+
+## Features
+* feat(ci): feat(ci): Deploy ephemeral EJBCA/SignServer server as part of CI/CD test workflow. This enables the controller to be tested against a real CA.
+* feat(ci): Reconcile Keyfactor actions and old workflows to match the new Keyfactor GitHub Actions workflows.
+* feat(helm): Add namespace to resource definitions for helm template generation.
+* feat(signer): Use in-tree cert-manager certificate reconstruction methods when compiling `status`
+
 # v1.3.2
 
 ## Features
