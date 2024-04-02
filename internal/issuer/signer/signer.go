@@ -304,7 +304,7 @@ func createClientFromSecretMap(ctx context.Context, hostname string, clientCertS
 	if !clientCertContainsKey {
 		clientKeyBytes, ok := clientCertSecretData["tls.key"]
 		if !ok || len(clientKeyBytes) == 0 {
-			return nil, errors.New("tls.pem not found in secret data")
+			return nil, errors.New("tls.key not found in secret data")
 		}
 
 		// Try to decode client key as a PEM formatted block
