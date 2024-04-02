@@ -37,6 +37,7 @@ import (
 
 func TestEjbcaHealthCheckerFromIssuerAndSecretData(t *testing.T) {
 	pathToClientCert := os.Getenv("EJBCA_CLIENT_CERT_PATH")
+	pathToClientCertKey := os.Getenv("EJBCA_CLIENT_CERT_KEY_PATH")
 	pathToCaCert := os.Getenv("EJBCA_CA_CERT_PATH")
 	hostname := os.Getenv("EJBCA_HOSTNAME")
 
@@ -52,6 +53,12 @@ func TestEjbcaHealthCheckerFromIssuerAndSecretData(t *testing.T) {
 
 	authSecretData := map[string][]byte{}
 	authSecretData["tls.crt"] = clientCertBytes
+
+    // Read the client key from the file system.
+    clientCertKeyBytes, err := os.ReadFile(pathToClientCertKey)
+    if err == nil {
+        authSecretData["tls.key"] = clientCertKeyBytes
+    }
 
 	// Read the CA cert from the file system.
 	caCertBytes, err := os.ReadFile(pathToCaCert)
@@ -86,6 +93,7 @@ func TestEjbcaSignerFromIssuerAndSecretData(t *testing.T) {
 	ctx := context.Background()
 
 	pathToClientCert := os.Getenv("EJBCA_CLIENT_CERT_PATH")
+	pathToClientCertKey := os.Getenv("EJBCA_CLIENT_CERT_KEY_PATH")
 	pathToCaCert := os.Getenv("EJBCA_CA_CERT_PATH")
 	hostname := os.Getenv("EJBCA_HOSTNAME")
 	ejbcaCaName := os.Getenv("EJBCA_CA_NAME")
@@ -102,7 +110,8 @@ func TestEjbcaSignerFromIssuerAndSecretData(t *testing.T) {
 	}
 
 	if ejbcaCsrDn == "" {
-		t.Fatal("EJBCA_CSR_SUBJECT must be set to run this test")
+        ejbcaCsrDn = "CN=example.com"
+		t.Log("EJBCA_CSR_SUBJECT not set, using default value")
 	}
 
 	// Read the client cert and key from the file system.
@@ -113,6 +122,12 @@ func TestEjbcaSignerFromIssuerAndSecretData(t *testing.T) {
 
 	authSecretData := map[string][]byte{}
 	authSecretData["tls.crt"] = clientCertBytes
+
+    // Read the client key from the file system.
+    clientCertKeyBytes, err := os.ReadFile(pathToClientCertKey)
+    if err == nil {
+        authSecretData["tls.key"] = clientCertKeyBytes
+    }
 
 	spec := ejbcaissuer.IssuerSpec{
 		Hostname:                 hostname,
