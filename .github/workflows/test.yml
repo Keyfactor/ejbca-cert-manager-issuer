@@ -57,12 +57,6 @@ jobs:
           deploy-k8s: 'true'
           deploy-nginx-ingress: 'true'
 
-      # Merge the client certificate and client key into the client certificate file
-      - name: Merge client certificate and client key
-        shell: bash
-        run: |
-          cat ${{ env.EJBCA_CLIENT_CERT_KEY_PATH }} >> ${{ env.EJBCA_CLIENT_CERT_PATH }}
-
       # Run Go tests
       - name: Run go test
         run: go test -v ./...
