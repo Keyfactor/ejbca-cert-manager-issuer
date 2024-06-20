@@ -26,8 +26,9 @@ if ! helm "${helm_install_args[@]}" ; then
 fi
 
 echo "Waiting for Pod to be ready"
-if ! kubectl --namespace "$reconciler_namespace" wait --for=condition=ready pod -l app.kubernetes.io/instance="$reconciler_chart_name" --timeout=120s ; then
+if ! kubectl --namespace "$reconciler_namespace" wait --for=condition=ready pod -l app.kubernetes.io/instance="$reconciler_chart_name" --timeout=30s ; then
     echo "Failed to deploy $reconciler_chart_name"
+    kubectl describe all -A
     exit 1
 fi
 
