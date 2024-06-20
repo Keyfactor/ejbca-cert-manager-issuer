@@ -44,11 +44,11 @@ type IssuerSpec struct {
 	// Optional field that overrides the default for how the EJBCA issuer should determine the
 	// name of the end entity to reference or create when signing certificates.
 	// The options are:
-	//* cn: Use the CommonName from the CertificateRequest's DN
-	//* dns: Use the first DNSName from the CertificateRequest's DNSNames SANs
-	//* uri: Use the first URI from the CertificateRequest's URI Sans
-	//* ip: Use the first IPAddress from the CertificateRequest's IPAddresses SANs
-	//* certificateName: Use the value of the CertificateRequest's certificateName annotation
+	//  * cn: Use the CommonName from the CertificateRequest's DN
+	//  * dns: Use the first DNSName from the CertificateRequest's DNSNames SANs
+	//  * uri: Use the first URI from the CertificateRequest's URI Sans
+	//  * ip: Use the first IPAddress from the CertificateRequest's IPAddresses SANs
+	//  * certificateName: Use the value of the CertificateRequest's certificateName annotation
 	// If none of the above options are used but endEntityName is populated, the
 	// value of endEntityName will be used as the end entity name. If endEntityName
 	// is not populated, the default tree listed in the EJBCA documentation will be used.
