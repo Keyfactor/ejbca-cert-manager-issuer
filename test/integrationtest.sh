@@ -7,9 +7,6 @@ version="latest"
 echo "Building docker image"
 make docker-build DOCKER_REGISTRY=keyfactor DOCKER_IMAGE_NAME="$reconciler_chart_name" VERSION="$version"
 
-echo "Packaging $reconciler_chart_name Helm chart"
-helm package deploy/charts/"$reconciler_chart_name" --version "$version" --app-version "$version"
-
 echo "Deploying $reconciler_chart_name Helm chart"
 helm_install_args=(
     "install" 
