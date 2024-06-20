@@ -1,5 +1,5 @@
 # Build the manager binary
-ARG GOIMAGE=golang:1.20
+ARG GOIMAGE=golang:1.22.3
 ARG BASEIMAGE=gcr.io/distroless/static:nonroot
 
 FROM ${GOIMAGE} as builder
