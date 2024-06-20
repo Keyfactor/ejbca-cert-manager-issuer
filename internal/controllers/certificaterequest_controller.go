@@ -21,8 +21,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Keyfactor/ejbca-issuer/internal/issuer/signer"
-	issuerutil "github.com/Keyfactor/ejbca-issuer/internal/issuer/util"
+	"github.com/Keyfactor/ejbca-issuer/internal/ejbca"
+	issuerutil "github.com/Keyfactor/ejbca-issuer/internal/util"
 	cmutil "github.com/cert-manager/cert-manager/pkg/api/util"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
@@ -48,11 +48,10 @@ var (
 
 type CertificateRequestReconciler struct {
 	client.Client
-	ConfigClient             issuerutil.ConfigClient
-	Scheme                   *runtime.Scheme
-	SignerBuilder            signer.EjbcaSignerBuilder
-	ClusterResourceNamespace string
-
+	ConfigClient                      issuerutil.ConfigClient
+	Scheme                            *runtime.Scheme
+	SignerBuilder                     ejbca.SignerBuilder
+	ClusterResourceNamespace          string
 	Clock                             clock.Clock
 	CheckApprovedCondition            bool
 	SecretAccessGrantedAtClusterLevel bool
@@ -71,7 +70,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	var certificateRequest cmapi.CertificateRequest
 	if err := r.Get(ctx, req.NamespacedName, &certificateRequest); err != nil {
 		if err := client.IgnoreNotFound(err); err != nil {
-			return ctrl.Result{}, fmt.Errorf("unexpected get error: %v", err)
+			return ctrl.Result{}, fmt.Errorf("unexpected get error: %w", err)
 		}
 		log.Info("Not found. Ignoring.")
 		return ctrl.Result{}, nil
@@ -156,7 +155,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	issuerGVK := ejbcaissuer.GroupVersion.WithKind(certificateRequest.Spec.IssuerRef.Kind)
 	issuerRO, err := r.Scheme.New(issuerGVK)
 	if err != nil {
-		err = fmt.Errorf("%w: %v", errIssuerRef, err)
+		err = fmt.Errorf("%w: %w", errIssuerRef, err)
 		log.Error(err, "Unrecognized kind. Ignoring.")
 		issuerutil.SetCertificateRequestReadyCondition(ctx, &certificateRequest, cmmeta.ConditionFalse, cmapi.CertificateRequestReasonFailed, err.Error())
 		return ctrl.Result{}, nil
@@ -189,7 +188,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	// Get the Issuer or ClusterIssuer
 	if err := r.Get(ctx, issuerName, issuer); err != nil {
-		return ctrl.Result{}, fmt.Errorf("%w: %v", errGetIssuer, err)
+		return ctrl.Result{}, fmt.Errorf("%w: %w", errGetIssuer, err)
 	}
 
 	issuerSpec, issuerStatus, err := issuerutil.GetSpecAndStatus(issuer)
@@ -203,24 +202,15 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, errIssuerNotReady
 	}
 
-	// Set the context on the config client
 	r.ConfigClient.SetContext(ctx)
 
-	// Retrieve the auth secret
-	authSecretName := types.NamespacedName{
+	secretName := types.NamespacedName{
 		Name:      issuerSpec.EjbcaSecretName,
 		Namespace: secretNamespace,
 	}
-
-	var authSecret corev1.Secret
-	if err := r.ConfigClient.GetSecret(authSecretName, &authSecret); err != nil {
-		return ctrl.Result{}, fmt.Errorf("%w, authSecret name: %s, reason: %v", errGetAuthSecret, authSecretName, err)
-	}
-
-	// Retrieve the CA certificate secret
 	caSecretName := types.NamespacedName{
 		Name:      issuerSpec.CaBundleSecretName,
-		Namespace: secretNamespace,
+		Namespace: secretName.Namespace,
 	}
 
 	var caSecret corev1.Secret
@@ -228,18 +218,87 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		// If the CA secret name is not specified, we will not attempt to retrieve it
 		err = r.ConfigClient.GetSecret(caSecretName, &caSecret)
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %v", errGetCaSecret, caSecretName, err)
+			return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %w", errGetCaSecret, caSecretName, err)
 		}
 	}
 
-	ejbcaSigner, err := r.SignerBuilder(ctx, issuerSpec, certificateRequest.GetAnnotations(), authSecret.Data, caSecret.Data)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("%w: %v", errSignerBuilder, err)
+	var authSecret corev1.Secret
+	if err := r.ConfigClient.GetSecret(secretName, &authSecret); err != nil {
+		return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %w", errGetAuthSecret, secretName, err)
 	}
 
-	chain, ca, err := ejbcaSigner.Sign(ctx, certificateRequest.Spec.Request)
+	var authOpt ejbca.Option
+	switch {
+	case authSecret.Type == corev1.SecretTypeTLS:
+		cert, ok := authSecret.Data[corev1.TLSCertKey]
+		if !ok {
+			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found TLS secret with no certificate")
+		}
+		key, ok := authSecret.Data[corev1.TLSPrivateKeyKey]
+		if !ok {
+			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found TLS secret with no private key")
+		}
+		authOpt = ejbca.WithClientCert(&ejbca.CertAuth{
+			ClientCert: cert,
+			ClientKey:  key,
+		})
+	case authSecret.Type == corev1.SecretTypeOpaque:
+		// We expect auth credentials for a client credential OAuth2.0 flow if the secret type is opaque
+		tokenURL, ok := authSecret.Data["tokenUrl"]
+		if !ok {
+			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with no tokenUrl")
+		}
+		clientID, ok := authSecret.Data["clientId"]
+		if !ok {
+			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with no clientId")
+		}
+		clientSecret, ok := authSecret.Data["clientSecret"]
+		if !ok {
+			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with no clientSecret")
+		}
+		oauth := &ejbca.OAuth{
+			TokenURL:     string(tokenURL),
+			ClientID:     string(clientID),
+			ClientSecret: string(clientSecret),
+		}
+		scopes, ok := authSecret.Data["scopes"]
+		if ok {
+			oauth.Scopes = string(scopes)
+		}
+		audience, ok := authSecret.Data["audience"]
+		if ok {
+			oauth.Audience = string(audience)
+		}
+		authOpt = ejbca.WithOAuth(oauth)
+	default:
+		return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with unsupported type")
+	}
+
+	var caCertBytes []byte
+	// There is no requirement that the CA certificate is stored under a specific
+	// key in the secret, so we can just iterate over the map and effectively select
+	// the last value in the map
+	for _, bytes := range caSecret.Data {
+		caCertBytes = bytes
+	}
+
+	signer, err := r.SignerBuilder(ctx,
+		ejbca.WithHostname(issuerSpec.Hostname),
+		ejbca.WithCACerts(caCertBytes),
+		authOpt,
+		ejbca.WithEndEntityProfileName(issuerSpec.EndEntityProfileName),
+		ejbca.WithCertificateProfileName(issuerSpec.CertificateProfileName),
+		ejbca.WithCertificateAuthority(issuerSpec.CertificateAuthorityName),
+		ejbca.WithEndEntityName(issuerSpec.EndEntityName),
+		ejbca.WithAnnotations(certificateRequest.GetAnnotations()),
+	)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("%w: %v", errSignerSign, err)
+		return ctrl.Result{}, fmt.Errorf("%w: %w", errSignerBuilder, err)
+	}
+
+	chain, ca, err := signer.Sign(ctx, certificateRequest.Spec.Request)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("%w: %w", errSignerSign, err)
 	}
 	certificateRequest.Status.Certificate = chain
 	certificateRequest.Status.CA = ca

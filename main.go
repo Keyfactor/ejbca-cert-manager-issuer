@@ -21,12 +21,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
+
 	"github.com/Keyfactor/ejbca-issuer/internal/controllers"
-	signer "github.com/Keyfactor/ejbca-issuer/internal/issuer/signer"
-	"github.com/Keyfactor/ejbca-issuer/internal/issuer/util"
+	"github.com/Keyfactor/ejbca-issuer/internal/ejbca"
+	"github.com/Keyfactor/ejbca-issuer/internal/util"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"k8s.io/utils/clock"
-	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -115,8 +116,6 @@ func main() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "14a54492.keyfactor.com",
@@ -143,7 +142,7 @@ func main() {
 		ConfigClient:                      configClient,
 		Scheme:                            mgr.GetScheme(),
 		ClusterResourceNamespace:          clusterResourceNamespace,
-		HealthCheckerBuilder:              signer.EjbcaHealthCheckerFromIssuerAndSecretData,
+		HealthCheckerBuilder:              ejbca.NewHealthChecker,
 		SecretAccessGrantedAtClusterLevel: secretAccessGrantedAtClusterLevel,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Issuer")
@@ -155,7 +154,7 @@ func main() {
 		ConfigClient:                      configClient,
 		Scheme:                            mgr.GetScheme(),
 		ClusterResourceNamespace:          clusterResourceNamespace,
-		HealthCheckerBuilder:              signer.EjbcaHealthCheckerFromIssuerAndSecretData,
+		HealthCheckerBuilder:              ejbca.NewHealthChecker,
 		SecretAccessGrantedAtClusterLevel: secretAccessGrantedAtClusterLevel,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterIssuer")
@@ -166,7 +165,7 @@ func main() {
 		ConfigClient:                      configClient,
 		Scheme:                            mgr.GetScheme(),
 		ClusterResourceNamespace:          clusterResourceNamespace,
-		SignerBuilder:                     signer.EjbcaSignerFromIssuerAndSecretData,
+		SignerBuilder:                     ejbca.NewSigner,
 		CheckApprovedCondition:            !disableApprovedCheck,
 		Clock:                             clock.RealClock{},
 		SecretAccessGrantedAtClusterLevel: secretAccessGrantedAtClusterLevel,

@@ -19,6 +19,7 @@ package util
 import (
 	"context"
 	"fmt"
+
 	authv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,8 +48,6 @@ type configClient struct {
 // NewConfigClient creates a new K8s REST client using the configuration from the controller-runtime.
 func NewConfigClient(ctx context.Context) (ConfigClient, error) {
 	config := ctrl.GetConfigOrDie()
-
-	// Create the clientset
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create clientset: %w", err)
@@ -62,7 +61,6 @@ func NewConfigClient(ctx context.Context) (ConfigClient, error) {
 	}
 
 	client.verifyAccessFunc = client.verifyAccessToResource
-
 	return client, nil
 }
 
