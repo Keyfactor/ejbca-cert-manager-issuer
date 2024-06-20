@@ -18,9 +18,13 @@ package controllers
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
-	"github.com/Keyfactor/ejbca-issuer/internal/issuer/signer"
-	issuerutil "github.com/Keyfactor/ejbca-issuer/internal/issuer/util"
+	"testing"
+
+	"github.com/Keyfactor/ejbca-issuer/internal/ejbca"
+	issuerutil "github.com/Keyfactor/ejbca-issuer/internal/util"
 	logrtesting "github.com/go-logr/logr/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"testing"
 
 	ejbcaissuer "github.com/Keyfactor/ejbca-issuer/api/v1alpha1"
 )
@@ -45,12 +48,33 @@ func (o *fakeHealthChecker) Check() error {
 	return o.errCheck
 }
 
+var newFakeHealthCheckerBuilder = func(builderErr error, checkerErr error) func(context.Context, ...ejbca.Option) (ejbca.HealthChecker, error) {
+	return func(context.Context, ...ejbca.Option) (ejbca.HealthChecker, error) {
+		return &fakeHealthChecker{
+			errCheck: checkerErr,
+		}, builderErr
+	}
+}
+
 func TestIssuerReconcile(t *testing.T) {
+	caCert, rootKey := issueTestCertificate(t, "Root-CA", nil, nil)
+	// caCertPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caCert.Raw})
+
+	// serverCert, _ := issueTestCertificate(t, "Server", caCert, rootKey)
+	// serverCertPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: serverCert.Raw})
+	// caChain := append(serverCertPem, caCertPem...)
+
+	authCert, authKey := issueTestCertificate(t, "Auth", caCert, rootKey)
+	keyByte, err := x509.MarshalECPrivateKey(authKey)
+	require.NoError(t, err)
+	authCertPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: authCert.Raw})
+	authKeyPem := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyByte})
+
 	type testCase struct {
 		kind                         string
 		name                         types.NamespacedName
 		objects                      []client.Object
-		healthCheckerBuilder         signer.HealthCheckerBuilder
+		healthCheckerBuilder         ejbca.HealthCheckerBuilder
 		clusterResourceNamespace     string
 		expectedResult               ctrl.Result
 		expectedError                error
@@ -80,15 +104,18 @@ func TestIssuerReconcile(t *testing.T) {
 					},
 				},
 				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1-credentials",
 						Namespace: "ns1",
 					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
 				},
 			},
-			healthCheckerBuilder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte, map[string][]byte) (signer.HealthChecker, error) {
-				return &fakeHealthChecker{}, nil
-			},
+			healthCheckerBuilder:         newFakeHealthCheckerBuilder(nil, nil),
 			expectedReadyConditionStatus: ejbcaissuer.ConditionTrue,
 			expectedResult:               ctrl.Result{RequeueAfter: defaultHealthCheckInterval},
 		},
@@ -113,15 +140,18 @@ func TestIssuerReconcile(t *testing.T) {
 					},
 				},
 				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "clusterissuer1-credentials",
 						Namespace: "kube-system",
 					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
 				},
 			},
-			healthCheckerBuilder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte, map[string][]byte) (signer.HealthChecker, error) {
-				return &fakeHealthChecker{}, nil
-			},
+			healthCheckerBuilder:         newFakeHealthCheckerBuilder(nil, nil),
 			clusterResourceNamespace:     "kube-system",
 			expectedReadyConditionStatus: ejbcaissuer.ConditionTrue,
 			expectedResult:               ctrl.Result{RequeueAfter: defaultHealthCheckInterval},
@@ -190,15 +220,18 @@ func TestIssuerReconcile(t *testing.T) {
 					},
 				},
 				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1-credentials",
 						Namespace: "ns1",
 					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
 				},
 			},
-			healthCheckerBuilder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte, map[string][]byte) (signer.HealthChecker, error) {
-				return nil, errors.New("simulated health checker builder error")
-			},
+			healthCheckerBuilder:         newFakeHealthCheckerBuilder(errors.New("simulated health checker builder error"), nil),
 			expectedError:                errHealthCheckerBuilder,
 			expectedReadyConditionStatus: ejbcaissuer.ConditionFalse,
 		},
@@ -223,15 +256,18 @@ func TestIssuerReconcile(t *testing.T) {
 					},
 				},
 				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1-credentials",
 						Namespace: "ns1",
 					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
 				},
 			},
-			healthCheckerBuilder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte, map[string][]byte) (signer.HealthChecker, error) {
-				return &fakeHealthChecker{errCheck: errors.New("simulated health check error")}, nil
-			},
+			healthCheckerBuilder:         newFakeHealthCheckerBuilder(nil, errors.New("simulated health check error")),
 			expectedError:                errHealthCheckerCheck,
 			expectedReadyConditionStatus: ejbcaissuer.ConditionFalse,
 		},
@@ -246,6 +282,7 @@ func TestIssuerReconcile(t *testing.T) {
 			fakeClient := fake.NewClientBuilder().
 				WithScheme(scheme).
 				WithObjects(tc.objects...).
+				WithStatusSubresource(tc.objects...).
 				Build()
 			if tc.kind == "" {
 				tc.kind = "Issuer"
