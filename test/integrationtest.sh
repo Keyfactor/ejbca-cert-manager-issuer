@@ -7,13 +7,17 @@ version="latest"
 echo "Building docker image"
 make docker-build DOCKER_REGISTRY=keyfactor DOCKER_IMAGE_NAME="$reconciler_chart_name" VERSION="$version"
 
+docker images
+kind load docker-image keyfactor/ejbca-cert-manager-issuer:latest
+
 echo "Deploying $reconciler_chart_name Helm chart"
 helm_install_args=(
     "install" 
     "--namespace" "$reconciler_namespace"
     "--create-namespace"
     "$reconciler_chart_name" 
-    "deploy/charts/"$reconciler_chart_name"" 
+    "deploy/charts/$reconciler_chart_name" 
+    "--set" "image.repository=keyfactor/$reconciler_chart_name"
     "--set" "image.pullPolicy=Never"
     "--set" "image.tag=$version"
     "--set" "metrics.metricsAddress=:8080"
