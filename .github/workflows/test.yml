@@ -58,6 +58,7 @@ jobs:
   integration:
     name: Integration Test with cert-manager
     needs: test
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -68,6 +69,11 @@ jobs:
           - '1.13.6'
     
     steps:
+      # Checkout code
+      # https://github.com/actions/checkout
+      - name: Checkout code
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+
       - run: sudo apt-get install jq curl openssl
 
       # Setup GoLang build environment
