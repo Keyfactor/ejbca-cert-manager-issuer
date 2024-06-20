@@ -20,12 +20,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Keyfactor/ejbca-issuer/internal/issuer/signer"
-	issuerutil "github.com/Keyfactor/ejbca-issuer/internal/issuer/util"
+	"time"
+
+	"github.com/Keyfactor/ejbca-issuer/internal/ejbca"
+	issuerutil "github.com/Keyfactor/ejbca-issuer/internal/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"time"
 
 	ejbcaissuer "github.com/Keyfactor/ejbca-issuer/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -52,7 +53,7 @@ type IssuerReconciler struct {
 	Kind                              string
 	Scheme                            *runtime.Scheme
 	ClusterResourceNamespace          string
-	HealthCheckerBuilder              signer.HealthCheckerBuilder
+	HealthCheckerBuilder              ejbca.HealthCheckerBuilder
 	SecretAccessGrantedAtClusterLevel bool
 }
 
@@ -81,7 +82,7 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	}
 	if err := r.Get(ctx, req.NamespacedName, issuer); err != nil {
 		if err := client.IgnoreNotFound(err); err != nil {
-			return ctrl.Result{}, fmt.Errorf("unexpected get error: %v", err)
+			return ctrl.Result{}, fmt.Errorf("unexpected get error: %w", err)
 		}
 		log.Info("Not found. Ignoring.")
 		return ctrl.Result{}, nil
@@ -136,11 +137,6 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	// Set the context on the config client
 	r.ConfigClient.SetContext(ctx)
 
-	var authSecret corev1.Secret
-	if err := r.ConfigClient.GetSecret(secretName, &authSecret); err != nil {
-		return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %v", errGetAuthSecret, secretName, err)
-	}
-
 	// Retrieve the CA certificate secret
 	caSecretName := types.NamespacedName{
 		Name:      issuerSpec.CaBundleSecretName,
@@ -152,17 +148,85 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 		// If the CA secret name is not specified, we will not attempt to retrieve it
 		err = r.ConfigClient.GetSecret(caSecretName, &caSecret)
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %v", errGetCaSecret, caSecretName, err)
+			return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %w", errGetCaSecret, caSecretName, err)
 		}
 	}
 
-	checker, err := r.HealthCheckerBuilder(ctx, issuerSpec, authSecret.Data, caSecret.Data)
+	var authSecret corev1.Secret
+	if err := r.ConfigClient.GetSecret(secretName, &authSecret); err != nil {
+		return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %w", errGetAuthSecret, secretName, err)
+	}
+
+	var authOpt ejbca.Option
+	switch {
+	case authSecret.Type == corev1.SecretTypeTLS:
+		cert, ok := authSecret.Data[corev1.TLSCertKey]
+		if !ok {
+			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found TLS secret with no certificate")
+		}
+		key, ok := authSecret.Data[corev1.TLSPrivateKeyKey]
+		if !ok {
+			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found TLS secret with no private key")
+		}
+		authOpt = ejbca.WithClientCert(&ejbca.CertAuth{
+			ClientCert: cert,
+			ClientKey:  key,
+		})
+	case authSecret.Type == corev1.SecretTypeOpaque:
+		// We expect auth credentials for a client credential OAuth2.0 flow if the secret type is opaque
+		tokenURL, ok := authSecret.Data["tokenUrl"]
+		if !ok {
+			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with no tokenUrl")
+		}
+		clientID, ok := authSecret.Data["clientId"]
+		if !ok {
+			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with no clientId")
+		}
+		clientSecret, ok := authSecret.Data["clientSecret"]
+		if !ok {
+			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with no clientSecret")
+		}
+		oauth := &ejbca.OAuth{
+			TokenURL:     string(tokenURL),
+			ClientID:     string(clientID),
+			ClientSecret: string(clientSecret),
+		}
+		scopes, ok := authSecret.Data["scopes"]
+		if ok {
+			oauth.Scopes = string(scopes)
+		}
+		audience, ok := authSecret.Data["audience"]
+		if ok {
+			oauth.Audience = string(audience)
+		}
+		authOpt = ejbca.WithOAuth(oauth)
+	default:
+		return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with unsupported type")
+	}
+
+	var caCertBytes []byte
+	// There is no requirement that the CA certificate is stored under a specific
+	// key in the secret, so we can just iterate over the map and effectively select
+	// the last value in the map
+	for _, bytes := range caSecret.Data {
+		caCertBytes = bytes
+	}
+
+	checker, err := r.HealthCheckerBuilder(ctx,
+		ejbca.WithHostname(issuerSpec.Hostname),
+		ejbca.WithCACerts(caCertBytes),
+		authOpt,
+		ejbca.WithEndEntityProfileName(issuerSpec.EndEntityProfileName),
+		ejbca.WithCertificateProfileName(issuerSpec.CertificateProfileName),
+		ejbca.WithCertificateAuthority(issuerSpec.CertificateAuthorityName),
+		ejbca.WithEndEntityName(issuerSpec.EndEntityName),
+	)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("%w: %v", errHealthCheckerBuilder, err)
+		return ctrl.Result{}, fmt.Errorf("%w: %w", errHealthCheckerBuilder, err)
 	}
 
 	if err := checker.Check(); err != nil {
-		return ctrl.Result{}, fmt.Errorf("%w: %v", errHealthCheckerCheck, err)
+		return ctrl.Result{}, fmt.Errorf("%w: %w", errHealthCheckerCheck, err)
 	}
 
 	issuerutil.SetIssuerReadyCondition(ctx, name, r.Kind, issuerStatus, ejbcaissuer.ConditionTrue, issuerReadyConditionReason, "Success")
