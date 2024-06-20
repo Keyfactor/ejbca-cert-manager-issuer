@@ -9,7 +9,7 @@ make docker-build DOCKER_REGISTRY=keyfactor DOCKER_IMAGE_NAME="$reconciler_chart
 
 docker images
 kind get clusters
-kind load docker-image keyfactor/ejbca-cert-manager-issuer:latest
+kind load docker-image keyfactor/ejbca-cert-manager-issuer:latest --name chart-testing
 
 echo "Deploying $reconciler_chart_name Helm chart"
 helm_install_args=(
