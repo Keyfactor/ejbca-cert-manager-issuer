@@ -10,17 +10,43 @@
 The cert-manager external issuer for Keyfactor EJBCA can be used to issue certificates from Keyfactor EJBCA using cert-manager.
 
 ### Authentication
-Authentication to the EJBCA platform is done using a client certificate and key. The client certificate and key must be provided as a Kubernetes secret. If the Helm chart was deployed with the `--set "secretConfig.useClusterRoleForSecretAccess=true"` flag, the secret must be created in the same namespace as any Issuer resources deployed. Otherwise, the secret must be created in the same namespace as the controller.
+The ejbca-cert-manager-issuer can authenticate to EJBCA using mTLS (client certificate & key) or the OAuth 2.0 "client credentials" token flow (sometimes called two-legged OAuth 2.0).
+
+The credential must be configured using a Kubernetes Secret. By default, the secret is expected to exist in the same namespace as the issuer controller (`ejbca-issuer-system` by default). This can be overridden by deploying the chart using the `--set "secretConfig.useClusterRoleForSecretAccess=true"` flag.
+
+If the EJBCA API is configured to use a self-signed certificate or with a certificate that isn't publically trusted, the CA certificate must be provided as a Kubernetes secret.
+
+```shell
+kubectl -n ejbca-issuer-system create secret generic ejbca-ca-secret --from-file=ca.crt
+```
+
+#### mTLS
 
 Create a K8s TLS secret containing the client certificate and key to authenticate with EJBCA:
 ```shell
 kubectl -n ejbca-issuer-system create secret tls ejbca-secret --cert=client.crt --key=client.key
 ```
 
-If the EJBCA API is configured to use a self-signed certificate or with a certificate signed by an untrusted root, the CA certificate must be provided as a Kubernetes secret.
+#### OAuth
+
+Create an Opaque secret containing the client ID and client secret to authenticate with EJBCA:
+
 ```shell
-kubectl -n ejbca-issuer-system create secret generic ejbca-ca-secret --from-file=ca.crt
+token_url="<token url>"
+client_id="<client id>"
+client_secret="<client secret>"
+audience="<audience>"
+scopes="<scopes>"
+
+kubectl -n ejbca-issuer-system create secret generic ejbca-secret \
+    "--from-literal=tokenUrl=$token_url" \
+    "--from-literal=clientId=$client_id" \
+    "--from-literal=clientSecret=$client_secret" \
+    "--from-literal=audience=$audience" \
+    "--from-literal=scopes=$scopes"
 ```
+
+> Audience and Scopes are optional
 
 ### Creating Issuer and ClusterIssuer resources
 The `ejbca-issuer.keyfactor.com/v1alpha1` API version supports Issuer and ClusterIssuer resources.
@@ -31,10 +57,10 @@ For example, ClusterIssuer resources can be used to issue certificates for resou
 
 The `spec` field of both the Issuer and ClusterIssuer resources use the following fields:
 * `hostname` - The hostname of the EJBCA instance
-* `ejbcaSecretName` - The name of the Kubernetes secret containing the client certificate and key
+* `ejbcaSecretName` - The name of the Kubernetes secret containing the client certificate and key or OAuth 2.0 credentials.
 * `certificateAuthorityName` - The name of the EJBCA certificate authority to use. For example, `ManagementCA`
 * `certificateProfileName` - The name of the EJBCA certificate profile to use. For example, `ENDUSER`
-* `endEntityProfileName` - The name of the EJBCA end entity profile to use. For example, `ENDUSER`
+* `endEntityProfileName` - The name of the EJBCA end entity profile to use. For example, `istio`
 * `caBundleSecretName` - The name of the Kubernetes secret containing the CA certificate. This field is optional and only required if the EJBCA API is configured to use a self-signed certificate or with a certificate signed by an untrusted root.
 * `endEntityName` - The name of the end entity to use. This field is optional. More information on how the field is used can be found in the [EJBCA End Entity Name Configuration](#ejbca-end-entity-name-configuration) section.
 

@@ -1,5 +1,5 @@
 /*
-Copyright © 2023 Keyfactor
+Copyright © 2024 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,11 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package controller
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
+	"math/big"
+	"strings"
+	"testing"
+	"time"
+
+	ejbcaissuerv1alpha1 "github.com/Keyfactor/ejbca-cert-manager-issuer/api/v1alpha1"
+	"github.com/Keyfactor/ejbca-cert-manager-issuer/internal/ejbca"
 	cmutil "github.com/cert-manager/cert-manager/pkg/api/util"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
@@ -27,7 +40,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,10 +49,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"testing"
-
-	ejbcaissuer "github.com/Keyfactor/ejbca-issuer/api/v1alpha1"
-	"github.com/Keyfactor/ejbca-issuer/internal/issuer/signer"
 )
 
 var (
@@ -55,23 +63,45 @@ func (o *fakeSigner) Sign(context.Context, []byte) ([]byte, []byte, error) {
 	return []byte("fake signed certificate"), []byte("fake chain"), o.errSign
 }
 
+var newFakeSignerBuilder = func(builderErr error, signerErr error) func(context.Context, ...ejbca.Option) (ejbca.Signer, error) {
+	return func(context.Context, ...ejbca.Option) (ejbca.Signer, error) {
+		return &fakeSigner{
+			errSign: signerErr,
+		}, builderErr
+	}
+}
+
 func TestCertificateRequestReconcile(t *testing.T) {
-	//nowMetaTime := metav1.NewTime(fixedClockStart)
+	caCert, rootKey := issueTestCertificate(t, "Root-CA", nil, nil)
+	// caCertPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caCert.Raw})
+
+	// serverCert, _ := issueTestCertificate(t, "Server", caCert, rootKey)
+	// serverCertPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: serverCert.Raw})
+	// caChain := append(serverCertPem, caCertPem...)
+
+	authCert, authKey := issueTestCertificate(t, "Auth", caCert, rootKey)
+	keyByte, err := x509.MarshalECPrivateKey(authKey)
+	require.NoError(t, err)
+	authCertPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: authCert.Raw})
+	authKeyPem := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyByte})
 
 	type testCase struct {
-		name                         types.NamespacedName
-		objects                      []client.Object
-		Builder                      signer.EjbcaSignerBuilder
-		clusterResourceNamespace     string
+		name          types.NamespacedName
+		signerBuilder ejbca.SignerBuilder
+
+		// Configuration
+		objects                  []client.Object
+		clusterResourceNamespace string
+
+		// Expected
 		expectedResult               ctrl.Result
-		expectedError                error
+		expectedErrorMessagePrefix   string
 		expectedReadyConditionStatus cmmeta.ConditionStatus
 		expectedReadyConditionReason string
-		expectedFailureTime          *metav1.Time
 		expectedCertificate          []byte
 	}
 	tests := map[string]testCase{
-		"success-issuer": {
+		"success-issuer-mtls": {
 			name: types.NamespacedName{Namespace: "ns1", Name: "cr1"},
 			objects: []client.Object{
 				cmgen.CertificateRequest(
@@ -79,7 +109,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -91,39 +121,41 @@ func TestCertificateRequestReconcile(t *testing.T) {
 						Status: cmmeta.ConditionUnknown,
 					}),
 				),
-				&ejbcaissuer.Issuer{
+				&ejbcaissuerv1alpha1.Issuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1",
 						Namespace: "ns1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "issuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionTrue,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
 							},
 						},
 					},
 				},
 				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1-credentials",
 						Namespace: "ns1",
 					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
 				},
 			},
-			Builder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string]string, map[string][]byte, map[string][]byte) (signer.Signer, error) {
-				return &fakeSigner{}, nil
-			},
+			signerBuilder:                newFakeSignerBuilder(nil, nil),
 			expectedReadyConditionStatus: cmmeta.ConditionTrue,
 			expectedReadyConditionReason: cmapi.CertificateRequestReasonIssued,
-			expectedFailureTime:          nil,
 			expectedCertificate:          []byte("fake signed certificate"),
 		},
-		"success-cluster-issuer": {
+		"success-cluster-issuer-mtls": {
 			name: types.NamespacedName{Namespace: "ns1", Name: "cr1"},
 			objects: []client.Object{
 				cmgen.CertificateRequest(
@@ -131,7 +163,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "clusterissuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "ClusterIssuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -143,36 +175,152 @@ func TestCertificateRequestReconcile(t *testing.T) {
 						Status: cmmeta.ConditionUnknown,
 					}),
 				),
-				&ejbcaissuer.ClusterIssuer{
+				&ejbcaissuerv1alpha1.ClusterIssuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "clusterissuer1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "clusterissuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionTrue,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
 							},
 						},
 					},
 				},
 				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "clusterissuer1-credentials",
 						Namespace: "kube-system",
 					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
 				},
 			},
-			Builder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string]string, map[string][]byte, map[string][]byte) (signer.Signer, error) {
-				return &fakeSigner{}, nil
-			},
+			signerBuilder:                newFakeSignerBuilder(nil, nil),
 			clusterResourceNamespace:     "kube-system",
 			expectedReadyConditionStatus: cmmeta.ConditionTrue,
 			expectedReadyConditionReason: cmapi.CertificateRequestReasonIssued,
-			expectedFailureTime:          nil,
+			expectedCertificate:          []byte("fake signed certificate"),
+		},
+		"success-issuer-oauth": {
+			name: types.NamespacedName{Namespace: "ns1", Name: "cr1"},
+			objects: []client.Object{
+				cmgen.CertificateRequest(
+					"cr1",
+					cmgen.SetCertificateRequestNamespace("ns1"),
+					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
+						Name:  "issuer1",
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
+						Kind:  "Issuer",
+					}),
+					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
+						Type:   cmapi.CertificateRequestConditionApproved,
+						Status: cmmeta.ConditionTrue,
+					}),
+					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
+						Type:   cmapi.CertificateRequestConditionReady,
+						Status: cmmeta.ConditionUnknown,
+					}),
+				),
+				&ejbcaissuerv1alpha1.Issuer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1",
+						Namespace: "ns1",
+					},
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
+						EjbcaSecretName: "issuer1-credentials",
+					},
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
+							{
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
+							},
+						},
+					},
+				},
+				&corev1.Secret{
+					Type: corev1.SecretTypeOpaque,
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1-credentials",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						"tokenUrl":     authCertPem,
+						"clientId":     authKeyPem,
+						"clientSecret": authKeyPem,
+						"scopes":       authKeyPem,
+						"audience":     authKeyPem,
+					},
+				},
+			},
+			signerBuilder:                newFakeSignerBuilder(nil, nil),
+			expectedReadyConditionStatus: cmmeta.ConditionTrue,
+			expectedReadyConditionReason: cmapi.CertificateRequestReasonIssued,
+			expectedCertificate:          []byte("fake signed certificate"),
+		},
+		"success-cluster-issuer-oauth": {
+			name: types.NamespacedName{Namespace: "ns1", Name: "cr1"},
+			objects: []client.Object{
+				cmgen.CertificateRequest(
+					"cr1",
+					cmgen.SetCertificateRequestNamespace("ns1"),
+					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
+						Name:  "clusterissuer1",
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
+						Kind:  "ClusterIssuer",
+					}),
+					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
+						Type:   cmapi.CertificateRequestConditionApproved,
+						Status: cmmeta.ConditionTrue,
+					}),
+					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
+						Type:   cmapi.CertificateRequestConditionReady,
+						Status: cmmeta.ConditionUnknown,
+					}),
+				),
+				&ejbcaissuerv1alpha1.ClusterIssuer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "clusterissuer1",
+					},
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
+						EjbcaSecretName: "clusterissuer1-credentials",
+					},
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
+							{
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
+							},
+						},
+					},
+				},
+				&corev1.Secret{
+					Type: corev1.SecretTypeOpaque,
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "clusterissuer1-credentials",
+						Namespace: "kube-system",
+					},
+					Data: map[string][]byte{
+						"tokenUrl":     authCertPem,
+						"clientId":     authKeyPem,
+						"clientSecret": authKeyPem,
+						"scopes":       authKeyPem,
+						"audience":     authKeyPem,
+					},
+				},
+			},
+			signerBuilder:                newFakeSignerBuilder(nil, nil),
+			clusterResourceNamespace:     "kube-system",
+			expectedReadyConditionStatus: cmmeta.ConditionTrue,
+			expectedReadyConditionReason: cmapi.CertificateRequestReasonIssued,
 			expectedCertificate:          []byte("fake signed certificate"),
 		},
 		"certificaterequest-not-found": {
@@ -199,7 +347,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -221,7 +369,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -241,7 +389,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "ForeignKind",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -265,7 +413,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -278,7 +426,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					}),
 				),
 			},
-			expectedError:                errGetIssuer,
+			expectedErrorMessagePrefix:   errGetIssuer.Error(),
 			expectedReadyConditionStatus: cmmeta.ConditionFalse,
 			expectedReadyConditionReason: cmapi.CertificateRequestReasonPending,
 		},
@@ -290,7 +438,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "clusterissuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "ClusterIssuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -303,7 +451,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					}),
 				),
 			},
-			expectedError:                errGetIssuer,
+			expectedErrorMessagePrefix:   errGetIssuer.Error(),
 			expectedReadyConditionStatus: cmmeta.ConditionFalse,
 			expectedReadyConditionReason: cmapi.CertificateRequestReasonPending,
 		},
@@ -315,7 +463,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -327,22 +475,22 @@ func TestCertificateRequestReconcile(t *testing.T) {
 						Status: cmmeta.ConditionUnknown,
 					}),
 				),
-				&ejbcaissuer.Issuer{
+				&ejbcaissuerv1alpha1.Issuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1",
 						Namespace: "ns1",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionFalse,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionFalse,
 							},
 						},
 					},
 				},
 			},
-			expectedError:                errIssuerNotReady,
+			expectedErrorMessagePrefix:   errIssuerNotReady.Error(),
 			expectedReadyConditionStatus: cmmeta.ConditionFalse,
 			expectedReadyConditionReason: cmapi.CertificateRequestReasonPending,
 		},
@@ -354,7 +502,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -366,25 +514,25 @@ func TestCertificateRequestReconcile(t *testing.T) {
 						Status: cmmeta.ConditionUnknown,
 					}),
 				),
-				&ejbcaissuer.Issuer{
+				&ejbcaissuerv1alpha1.Issuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1",
 						Namespace: "ns1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "issuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionTrue,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
 							},
 						},
 					},
 				},
 			},
-			expectedError:                errGetAuthSecret,
+			expectedErrorMessagePrefix:   errGetAuthSecret.Error(),
 			expectedReadyConditionStatus: cmmeta.ConditionFalse,
 			expectedReadyConditionReason: cmapi.CertificateRequestReasonPending,
 		},
@@ -396,7 +544,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -408,34 +556,37 @@ func TestCertificateRequestReconcile(t *testing.T) {
 						Status: cmmeta.ConditionUnknown,
 					}),
 				),
-				&ejbcaissuer.Issuer{
+				&ejbcaissuerv1alpha1.Issuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1",
 						Namespace: "ns1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "issuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionTrue,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
 							},
 						},
 					},
 				},
 				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1-credentials",
 						Namespace: "ns1",
 					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
 				},
 			},
-			Builder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string]string, map[string][]byte, map[string][]byte) (signer.Signer, error) {
-				return nil, errors.New("simulated signer builder error")
-			},
-			expectedError:                errSignerBuilder,
+			signerBuilder:                newFakeSignerBuilder(errors.New("simulated signer builder error"), nil),
+			expectedErrorMessagePrefix:   errSignerBuilder.Error(),
 			expectedReadyConditionStatus: cmmeta.ConditionFalse,
 			expectedReadyConditionReason: cmapi.CertificateRequestReasonPending,
 		},
@@ -447,7 +598,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -459,34 +610,37 @@ func TestCertificateRequestReconcile(t *testing.T) {
 						Status: cmmeta.ConditionUnknown,
 					}),
 				),
-				&ejbcaissuer.Issuer{
+				&ejbcaissuerv1alpha1.Issuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1",
 						Namespace: "ns1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "issuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionTrue,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
 							},
 						},
 					},
 				},
 				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1-credentials",
 						Namespace: "ns1",
 					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
 				},
 			},
-			Builder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string]string, map[string][]byte, map[string][]byte) (signer.Signer, error) {
-				return &fakeSigner{errSign: errors.New("simulated sign error")}, nil
-			},
-			expectedError:                errSignerSign,
+			signerBuilder:                newFakeSignerBuilder(nil, errors.New("simulated sign error")),
+			expectedErrorMessagePrefix:   errSignerSign.Error(),
 			expectedReadyConditionStatus: cmmeta.ConditionFalse,
 			expectedReadyConditionReason: cmapi.CertificateRequestReasonPending,
 		},
@@ -498,7 +652,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -506,92 +660,96 @@ func TestCertificateRequestReconcile(t *testing.T) {
 						Status: cmmeta.ConditionUnknown,
 					}),
 				),
-				&ejbcaissuer.Issuer{
+				&ejbcaissuerv1alpha1.Issuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1",
 						Namespace: "ns1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "issuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionTrue,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
 							},
 						},
 					},
 				},
 				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1-credentials",
 						Namespace: "ns1",
 					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
 				},
 			},
-			Builder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string]string, map[string][]byte, map[string][]byte) (signer.Signer, error) {
-				return &fakeSigner{}, nil
-			},
-			expectedFailureTime: nil,
+			signerBuilder:       newFakeSignerBuilder(nil, nil),
 			expectedCertificate: nil,
 		},
-		//"request-denied": {
-		//    name: types.NamespacedName{Namespace: "ns1", Name: "cr1"},
-		//    objects: []client.Object{
-		//        cmgen.CertificateRequest(
-		//            "cr1",
-		//            cmgen.SetCertificateRequestNamespace("ns1"),
-		//            cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
-		//                Name:  "issuer1",
-		//                Group: ejbcaissuer.GroupVersion.Group,
-		//                Kind:  "Issuer",
-		//            }),
-		//            cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
-		//                Type:   cmapi.CertificateRequestConditionDenied,
-		//                Status: cmmeta.ConditionTrue,
-		//            }),
-		//            cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
-		//                Type:   cmapi.CertificateRequestConditionReady,
-		//                Status: cmmeta.ConditionUnknown,
-		//            }),
-		//        ),
-		//        &ejbcaissuer.Issuer{
-		//            ObjectMeta: metav1.ObjectMeta{
-		//                Name:      "issuer1",
-		//                Namespace: "ns1",
-		//            },
-		//            Spec: ejbcaissuer.IssuerSpec{
-		//                EjbcaSecretName: "issuer1-credentials",
-		//            },
-		//            Status: ejbcaissuer.IssuerStatus{
-		//                Conditions: []ejbcaissuer.IssuerCondition{
-		//                    {
-		//                        Type:   ejbcaissuer.IssuerConditionReady,
-		//                        Status: ejbcaissuer.ConditionTrue,
-		//                    },
-		//                },
-		//            },
-		//        },
-		//        &corev1.Secret{
-		//            ObjectMeta: metav1.ObjectMeta{
-		//                Name:      "issuer1-credentials",
-		//                Namespace: "ns1",
-		//            },
-		//        },
-		//    },
-		//    Builder: func(*ejbcaissuer.IssuerSpec, map[string][]byte) (signer.Signer, error) {
-		//        return &fakeSigner{}, nil
-		//    },
-		//    expectedCertificate:          nil,
-		//    expectedFailureTime:          &nowMetaTime,
-		//    expectedReadyConditionStatus: cmmeta.ConditionFalse,
-		//    expectedReadyConditionReason: cmapi.CertificateRequestReasonDenied,
-		//},
+		"request-denied": {
+			name: types.NamespacedName{Namespace: "ns1", Name: "cr1"},
+			objects: []client.Object{
+				cmgen.CertificateRequest(
+					"cr1",
+					cmgen.SetCertificateRequestNamespace("ns1"),
+					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
+						Name:  "issuer1",
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
+						Kind:  "Issuer",
+					}),
+					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
+						Type:   cmapi.CertificateRequestConditionDenied,
+						Status: cmmeta.ConditionTrue,
+					}),
+					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
+						Type:   cmapi.CertificateRequestConditionReady,
+						Status: cmmeta.ConditionUnknown,
+					}),
+				),
+				&ejbcaissuerv1alpha1.Issuer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1",
+						Namespace: "ns1",
+					},
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
+						EjbcaSecretName: "issuer1-credentials",
+					},
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
+							{
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
+							},
+						},
+					},
+				},
+				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1-credentials",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
+				},
+			},
+			signerBuilder:                newFakeSignerBuilder(nil, nil),
+			expectedCertificate:          nil,
+			expectedReadyConditionStatus: cmmeta.ConditionFalse,
+			expectedReadyConditionReason: cmapi.CertificateRequestReasonDenied,
+		},
 	}
 
 	scheme := runtime.NewScheme()
-	require.NoError(t, ejbcaissuer.AddToScheme(scheme))
+	require.NoError(t, ejbcaissuerv1alpha1.AddToScheme(scheme))
 	require.NoError(t, cmapi.AddToScheme(scheme))
 	require.NoError(t, corev1.AddToScheme(scheme))
 
@@ -600,23 +758,29 @@ func TestCertificateRequestReconcile(t *testing.T) {
 			fakeClient := fake.NewClientBuilder().
 				WithScheme(scheme).
 				WithObjects(tc.objects...).
+				WithStatusSubresource(tc.objects...).
 				Build()
 			controller := CertificateRequestReconciler{
 				Client:                            fakeClient,
 				ConfigClient:                      NewFakeConfigClient(fakeClient),
 				Scheme:                            scheme,
 				ClusterResourceNamespace:          tc.clusterResourceNamespace,
-				SignerBuilder:                     tc.Builder,
+				SignerBuilder:                     tc.signerBuilder,
 				CheckApprovedCondition:            true,
 				Clock:                             fixedClock,
 				SecretAccessGrantedAtClusterLevel: true,
+			}
+			if tc.expectedErrorMessagePrefix != "" {
+				t.Logf("test %s - expected error: %s", name, tc.expectedErrorMessagePrefix)
+			} else {
+				t.Logf("test %s - expected error: nil", name)
 			}
 			result, err := controller.Reconcile(
 				ctrl.LoggerInto(context.TODO(), logrtesting.NewTestLogger(t)),
 				reconcile.Request{NamespacedName: tc.name},
 			)
-			if tc.expectedError != nil {
-				assertErrorIs(t, tc.expectedError, err)
+			if tc.expectedErrorMessagePrefix != "" {
+				require.True(t, strings.HasPrefix(err.Error(), tc.expectedErrorMessagePrefix))
 			} else {
 				assert.NoError(t, err)
 			}
@@ -631,10 +795,6 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					assertCertificateRequestHasReadyCondition(t, tc.expectedReadyConditionStatus, tc.expectedReadyConditionReason, &cr)
 				}
 				assert.Equal(t, tc.expectedCertificate, cr.Status.Certificate)
-
-				if !apiequality.Semantic.DeepEqual(tc.expectedFailureTime, cr.Status.FailureTime) {
-					assert.Equal(t, tc.expectedFailureTime, cr.Status.FailureTime)
-				}
 			}
 		})
 	}
@@ -661,4 +821,40 @@ func assertCertificateRequestHasReadyCondition(t *testing.T, status cmmeta.Condi
 	)
 	assert.Contains(t, validReasons, reason, "unexpected condition reason")
 	assert.Equal(t, reason, condition.Reason, "unexpected condition reason")
+}
+
+func issueTestCertificate(t *testing.T, cn string, parent *x509.Certificate, signingKey any) (*x509.Certificate, *ecdsa.PrivateKey) {
+	var err error
+	var key *ecdsa.PrivateKey
+	now := time.Now()
+
+	key, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	publicKey := &key.PublicKey
+	signerPrivateKey := key
+	if signingKey != nil {
+		signerPrivateKey = signingKey.(*ecdsa.PrivateKey)
+	}
+
+	serial, _ := rand.Int(rand.Reader, big.NewInt(1337))
+	certTemplate := &x509.Certificate{
+		Subject:               pkix.Name{CommonName: cn},
+		SerialNumber:          serial,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		NotBefore:             now,
+		NotAfter:              now.Add(time.Hour * 24),
+	}
+
+	if parent == nil {
+		parent = certTemplate
+	}
+
+	certData, err := x509.CreateCertificate(rand.Reader, certTemplate, parent, publicKey, signerPrivateKey)
+	require.NoError(t, err)
+
+	cert, err := x509.ParseCertificate(certData)
+	require.NoError(t, err)
+
+	return cert, key
 }
