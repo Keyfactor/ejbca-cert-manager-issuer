@@ -71,13 +71,12 @@ spec:
         args:
         - --leader-elect
         image: controller:latest
-        #imagePullPolicy: Never # TODO dev field
         name: manager
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
-              - "ALL"
+            - "ALL"
         livenessProbe:
           httpGet:
             path: /healthz
