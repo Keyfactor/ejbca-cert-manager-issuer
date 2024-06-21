@@ -1,5 +1,5 @@
 /*
-Copyright © 2023 Keyfactor
+Copyright © 2024 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package util
 
 import (
 	"context"
+	"testing"
+
 	logrtesting "github.com/go-logr/logr/testr"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -26,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"testing"
 )
 
 func TestConfigClient(t *testing.T) {
@@ -63,7 +64,7 @@ func TestConfigClient(t *testing.T) {
 
 	// The fake client doesn't implement authorization.k8s.io/v1 SelfSubjectAccessReview
 	// So we'll mock the verifyAccessFunc
-	client.verifyAccessFunc = func(apiResource string, resource types.NamespacedName) error {
+	client.verifyAccessFunc = func(_ string, _ types.NamespacedName) error {
 		return nil
 	}
 
