@@ -3,7 +3,7 @@
 
 cert-manager external issuer for EJBCA
 
-#### Integration status: Pilot - Ready for use in test environments. Not for use in production.
+#### Integration status: Production - Ready for use in production environments.
 
 ## About the Keyfactor API Client
 
@@ -54,6 +54,7 @@ Cert-manager is a native Kubernetes certificate management controller that allow
 For more information, see [Prerequisites](https://github.com/KarolinHem/ejbca-cert-manager-issuer/blob/main/docs/install.md#prerequisites). 
 
 ## Community Support
+
 In the [Keyfactor Community](https://www.keyfactor.com/community/), we welcome contributions. 
 
 The Community software is open-source and community-supported, meaning that **no SLA** is applicable.
@@ -66,9 +67,11 @@ The Community software is open-source and community-supported, meaning that **no
 Commercial support is available for [EJBCA Enterprise](https://www.keyfactor.com/products/ejbca-enterprise/).
 
 ## License
+
 For license information, see **[LICENSE](LICENSE)**. 
 
 ## Related Projects
+
 See all [Keyfactor EJBCA GitHub projects](https://github.com/orgs/Keyfactor/repositories?q=ejbca). 
 
 
