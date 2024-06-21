@@ -1,3 +1,16 @@
+# v2.0.0
+
+## Chores
+* Refactor EJBCA signer module to remove tight dependency on Issuer/ClusterIssuer types.
+* Migrate Kubebuilder from go/v3 to go/v4:
+    * Upgrade kustomize version to v5.3.0.
+    * Upgrade controller-gen to v0.15.0.
+* Refactor test cases to use fake EJBCA API instead of requiring live EJBCA server.
+* Write e2e integration test.
+
+## Features
+* Add support for OAuth2.0 client credential grant flow for EJBCA API authentication.
+
 # v1.4.0
 
 ## Features
