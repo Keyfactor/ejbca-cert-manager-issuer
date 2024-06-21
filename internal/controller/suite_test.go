@@ -1,5 +1,5 @@
 /*
-Copyright 2023 Keyfactor.
+Copyright © 2024 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package controller
 
 import (
 	"path/filepath"
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	ginkov2 "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -30,7 +30,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	ejbcaissuer "github.com/Keyfactor/ejbca-issuer/api/v1alpha1"
+	ejbcaissuerv1alpha1 "github.com/Keyfactor/ejbca-cert-manager-issuer/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -42,15 +42,15 @@ var k8sClient client.Client
 var testEnv *envtest.Environment
 
 func TestAPIs(t *testing.T) {
-	RegisterFailHandler(Fail)
+	gomega.RegisterFailHandler(ginkov2.Fail)
 
-	RunSpecs(t, "Controller Suite")
+	ginkov2.RunSpecs(t, "Controller Suite")
 }
 
-var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+var _ = ginkov2.BeforeSuite(func() {
+	logf.SetLogger(zap.New(zap.WriteTo(ginkov2.GinkgoWriter), zap.UseDevMode(true)))
 
-	By("bootstrapping test environment")
+	ginkov2.By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
@@ -59,22 +59,22 @@ var _ = BeforeSuite(func() {
 	var err error
 	// cfg is defined in this file globally.
 	cfg, err = testEnv.Start()
-	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(cfg).NotTo(gomega.BeNil())
 
-	err = ejbcaissuer.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
+	err = ejbcaissuerv1alpha1.AddToScheme(scheme.Scheme)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	gomega.Expect(k8sClient).NotTo(gomega.BeNil())
 
 })
 
-var _ = AfterSuite(func() {
-	By("tearing down the test environment")
+var _ = ginkov2.AfterSuite(func() {
+	ginkov2.By("tearing down the test environment")
 	err := testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 })
