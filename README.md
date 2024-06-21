@@ -3,7 +3,7 @@
 
 cert-manager external issuer for EJBCA
 
-#### Integration status: Pilot - Ready for use in test environments. Not for use in production.
+#### Integration status: Production - Ready for use in production environments.
 
 ## About the Keyfactor API Client
 

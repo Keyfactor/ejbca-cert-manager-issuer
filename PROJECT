@@ -4,9 +4,9 @@
 # More info: https://book.kubebuilder.io/reference/project-config.html
 domain: keyfactor.com
 layout:
-- go.kubebuilder.io/v3
+- go.kubebuilder.io/v4
 projectName: ejbca-issuer
-repo: github.com/Keyfactor/ejbca-issuer
+repo: github.com/Keyfactor/ejbca-cert-manager-issuer
 resources:
 - api:
     crdVersion: v1
@@ -15,14 +15,15 @@ resources:
   domain: keyfactor.com
   group: ejbca-issuer
   kind: Issuer
-  path: github.com/Keyfactor/ejbca-issuer/api/v1alpha1
+  path: github.com/Keyfactor/ejbca-cert-manager-issuer/api/v1alpha1
   version: v1alpha1
 - api:
     crdVersion: v1
+    namespaced: true
   controller: true
   domain: keyfactor.com
   group: ejbca-issuer
   kind: ClusterIssuer
-  path: github.com/Keyfactor/ejbca-issuer/api/v1alpha1
+  path: github.com/Keyfactor/ejbca-cert-manager-issuer/api/v1alpha1
   version: v1alpha1
 version: "3"
