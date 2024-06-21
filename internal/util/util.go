@@ -28,15 +28,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	ejbcaissuer "github.com/Keyfactor/ejbca-issuer/api/v1alpha1"
+	ejbcaissuerv1alpha1 "github.com/Keyfactor/ejbca-cert-manager-issuer/api/v1alpha1"
 )
 
 // GetName is a helper function that returns the name of an Issuer object.
 func GetName(issuer client.Object) (string, error) {
 	switch t := issuer.(type) {
-	case *ejbcaissuer.Issuer:
+	case *ejbcaissuerv1alpha1.Issuer:
 		return t.GetName(), nil
-	case *ejbcaissuer.ClusterIssuer:
+	case *ejbcaissuerv1alpha1.ClusterIssuer:
 		return t.GetName(), nil
 	default:
 		return "", fmt.Errorf("not an issuer type: %t", t)
@@ -44,11 +44,11 @@ func GetName(issuer client.Object) (string, error) {
 }
 
 // GetSpecAndStatus is a helper function that returns the Spec and Status of an Issuer object.
-func GetSpecAndStatus(issuer client.Object) (*ejbcaissuer.IssuerSpec, *ejbcaissuer.IssuerStatus, error) {
+func GetSpecAndStatus(issuer client.Object) (*ejbcaissuerv1alpha1.IssuerSpec, *ejbcaissuerv1alpha1.IssuerStatus, error) {
 	switch t := issuer.(type) {
-	case *ejbcaissuer.Issuer:
+	case *ejbcaissuerv1alpha1.Issuer:
 		return &t.Spec, &t.Status, nil
-	case *ejbcaissuer.ClusterIssuer:
+	case *ejbcaissuerv1alpha1.ClusterIssuer:
 		return &t.Spec, &t.Status, nil
 	default:
 		return nil, nil, fmt.Errorf("not an issuer type: %t", t)
@@ -73,13 +73,13 @@ func SetCertificateRequestReadyCondition(ctx context.Context, csr *cmapi.Certifi
 }
 
 // SetIssuerReadyCondition is a helper function that sets the Ready condition on an IssuerStatus.
-func SetIssuerReadyCondition(ctx context.Context, name, kind string, status *ejbcaissuer.IssuerStatus, conditionStatus ejbcaissuer.ConditionStatus, reason, message string) {
+func SetIssuerReadyCondition(ctx context.Context, name, kind string, status *ejbcaissuerv1alpha1.IssuerStatus, conditionStatus ejbcaissuerv1alpha1.ConditionStatus, reason, message string) {
 	log := ctrl.LoggerFrom(ctx)
 
 	ready := GetReadyCondition(status)
 	if ready == nil {
-		ready = &ejbcaissuer.IssuerCondition{
-			Type: ejbcaissuer.IssuerConditionReady,
+		ready = &ejbcaissuerv1alpha1.IssuerCondition{
+			Type: ejbcaissuerv1alpha1.IssuerConditionReady,
 		}
 		status.Conditions = append(status.Conditions, *ready)
 	}
@@ -94,7 +94,7 @@ func SetIssuerReadyCondition(ctx context.Context, name, kind string, status *ejb
 	ready.Message = message
 
 	for i, c := range status.Conditions {
-		if c.Type == ejbcaissuer.IssuerConditionReady {
+		if c.Type == ejbcaissuerv1alpha1.IssuerConditionReady {
 			status.Conditions[i] = *ready
 			return
 		}
@@ -102,9 +102,9 @@ func SetIssuerReadyCondition(ctx context.Context, name, kind string, status *ejb
 }
 
 // GetReadyCondition is a helper function that returns the Ready condition from an IssuerStatus.
-func GetReadyCondition(status *ejbcaissuer.IssuerStatus) *ejbcaissuer.IssuerCondition {
+func GetReadyCondition(status *ejbcaissuerv1alpha1.IssuerStatus) *ejbcaissuerv1alpha1.IssuerCondition {
 	for _, c := range status.Conditions {
-		if c.Type == ejbcaissuer.IssuerConditionReady {
+		if c.Type == ejbcaissuerv1alpha1.IssuerConditionReady {
 			return &c
 		}
 	}
@@ -112,9 +112,9 @@ func GetReadyCondition(status *ejbcaissuer.IssuerStatus) *ejbcaissuer.IssuerCond
 }
 
 // IsReady is a helper function that returns true if the Ready condition is set to True.
-func IsReady(status *ejbcaissuer.IssuerStatus) bool {
+func IsReady(status *ejbcaissuerv1alpha1.IssuerStatus) bool {
 	if c := GetReadyCondition(status); c != nil {
-		return c.Status == ejbcaissuer.ConditionTrue
+		return c.Status == ejbcaissuerv1alpha1.ConditionTrue
 	}
 	return false
 }

@@ -1,5 +1,5 @@
 /*
-Copyright © 2023 Keyfactor
+Copyright © 2024 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package controller
 
 import (
 	"context"
@@ -30,6 +30,8 @@ import (
 	"testing"
 	"time"
 
+	ejbcaissuerv1alpha1 "github.com/Keyfactor/ejbca-cert-manager-issuer/api/v1alpha1"
+	"github.com/Keyfactor/ejbca-cert-manager-issuer/internal/ejbca"
 	cmutil "github.com/cert-manager/cert-manager/pkg/api/util"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
@@ -47,9 +49,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	ejbcaissuer "github.com/Keyfactor/ejbca-issuer/api/v1alpha1"
-	"github.com/Keyfactor/ejbca-issuer/internal/ejbca"
 )
 
 var (
@@ -110,7 +109,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -122,19 +121,19 @@ func TestCertificateRequestReconcile(t *testing.T) {
 						Status: cmmeta.ConditionUnknown,
 					}),
 				),
-				&ejbcaissuer.Issuer{
+				&ejbcaissuerv1alpha1.Issuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1",
 						Namespace: "ns1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "issuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionTrue,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
 							},
 						},
 					},
@@ -164,7 +163,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "clusterissuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "ClusterIssuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -176,18 +175,18 @@ func TestCertificateRequestReconcile(t *testing.T) {
 						Status: cmmeta.ConditionUnknown,
 					}),
 				),
-				&ejbcaissuer.ClusterIssuer{
+				&ejbcaissuerv1alpha1.ClusterIssuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "clusterissuer1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "clusterissuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionTrue,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
 							},
 						},
 					},
@@ -218,7 +217,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -230,19 +229,19 @@ func TestCertificateRequestReconcile(t *testing.T) {
 						Status: cmmeta.ConditionUnknown,
 					}),
 				),
-				&ejbcaissuer.Issuer{
+				&ejbcaissuerv1alpha1.Issuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1",
 						Namespace: "ns1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "issuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionTrue,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
 							},
 						},
 					},
@@ -275,7 +274,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "clusterissuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "ClusterIssuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -287,18 +286,18 @@ func TestCertificateRequestReconcile(t *testing.T) {
 						Status: cmmeta.ConditionUnknown,
 					}),
 				),
-				&ejbcaissuer.ClusterIssuer{
+				&ejbcaissuerv1alpha1.ClusterIssuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "clusterissuer1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "clusterissuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionTrue,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
 							},
 						},
 					},
@@ -348,7 +347,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -370,7 +369,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -390,7 +389,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "ForeignKind",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -414,7 +413,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -439,7 +438,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "clusterissuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "ClusterIssuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -464,7 +463,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -476,16 +475,16 @@ func TestCertificateRequestReconcile(t *testing.T) {
 						Status: cmmeta.ConditionUnknown,
 					}),
 				),
-				&ejbcaissuer.Issuer{
+				&ejbcaissuerv1alpha1.Issuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1",
 						Namespace: "ns1",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionFalse,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionFalse,
 							},
 						},
 					},
@@ -503,7 +502,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -515,19 +514,19 @@ func TestCertificateRequestReconcile(t *testing.T) {
 						Status: cmmeta.ConditionUnknown,
 					}),
 				),
-				&ejbcaissuer.Issuer{
+				&ejbcaissuerv1alpha1.Issuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1",
 						Namespace: "ns1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "issuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionTrue,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
 							},
 						},
 					},
@@ -545,7 +544,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -557,19 +556,19 @@ func TestCertificateRequestReconcile(t *testing.T) {
 						Status: cmmeta.ConditionUnknown,
 					}),
 				),
-				&ejbcaissuer.Issuer{
+				&ejbcaissuerv1alpha1.Issuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1",
 						Namespace: "ns1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "issuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionTrue,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
 							},
 						},
 					},
@@ -599,7 +598,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -611,19 +610,19 @@ func TestCertificateRequestReconcile(t *testing.T) {
 						Status: cmmeta.ConditionUnknown,
 					}),
 				),
-				&ejbcaissuer.Issuer{
+				&ejbcaissuerv1alpha1.Issuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1",
 						Namespace: "ns1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "issuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionTrue,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
 							},
 						},
 					},
@@ -653,7 +652,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -661,19 +660,19 @@ func TestCertificateRequestReconcile(t *testing.T) {
 						Status: cmmeta.ConditionUnknown,
 					}),
 				),
-				&ejbcaissuer.Issuer{
+				&ejbcaissuerv1alpha1.Issuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1",
 						Namespace: "ns1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "issuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionTrue,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
 							},
 						},
 					},
@@ -701,7 +700,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 					cmgen.SetCertificateRequestNamespace("ns1"),
 					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
 						Name:  "issuer1",
-						Group: ejbcaissuer.GroupVersion.Group,
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
 						Kind:  "Issuer",
 					}),
 					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
@@ -713,19 +712,19 @@ func TestCertificateRequestReconcile(t *testing.T) {
 						Status: cmmeta.ConditionUnknown,
 					}),
 				),
-				&ejbcaissuer.Issuer{
+				&ejbcaissuerv1alpha1.Issuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1",
 						Namespace: "ns1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "issuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionTrue,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
 							},
 						},
 					},
@@ -750,7 +749,7 @@ func TestCertificateRequestReconcile(t *testing.T) {
 	}
 
 	scheme := runtime.NewScheme()
-	require.NoError(t, ejbcaissuer.AddToScheme(scheme))
+	require.NoError(t, ejbcaissuerv1alpha1.AddToScheme(scheme))
 	require.NoError(t, cmapi.AddToScheme(scheme))
 	require.NoError(t, corev1.AddToScheme(scheme))
 

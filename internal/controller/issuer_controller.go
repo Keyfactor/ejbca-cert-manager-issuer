@@ -1,5 +1,5 @@
 /*
-Copyright 2023 Keyfactor.
+Copyright © 2024 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package controller
 
 import (
 	"context"
@@ -22,14 +22,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Keyfactor/ejbca-issuer/internal/ejbca"
-	issuerutil "github.com/Keyfactor/ejbca-issuer/internal/util"
+	ejbcaissuerv1alpha1 "github.com/Keyfactor/ejbca-cert-manager-issuer/api/v1alpha1"
+	"github.com/Keyfactor/ejbca-cert-manager-issuer/internal/ejbca"
+	issuerutil "github.com/Keyfactor/ejbca-cert-manager-issuer/internal/util"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-
-	ejbcaissuer "github.com/Keyfactor/ejbca-issuer/api/v1alpha1"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -63,7 +62,7 @@ type IssuerReconciler struct {
 
 // newIssuer returns a new Issuer or ClusterIssuer object
 func (r *IssuerReconciler) newIssuer() (client.Object, error) {
-	issuerGVK := ejbcaissuer.GroupVersion.WithKind(r.Kind)
+	issuerGVK := ejbcaissuerv1alpha1.GroupVersion.WithKind(r.Kind)
 	ro, err := r.Scheme.New(issuerGVK)
 	if err != nil {
 		return nil, err
@@ -73,24 +72,24 @@ func (r *IssuerReconciler) newIssuer() (client.Object, error) {
 
 // Reconcile reconciles and updates the status of an Issuer or ClusterIssuer object
 func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
-	log := ctrl.LoggerFrom(ctx)
+	logger := ctrl.LoggerFrom(ctx)
 
 	issuer, err := r.newIssuer()
 	if err != nil {
-		log.Error(err, "Unrecognized issuer type")
+		logger.Error(err, "Unrecognized issuer type")
 		return ctrl.Result{}, nil
 	}
 	if err := r.Get(ctx, req.NamespacedName, issuer); err != nil {
 		if err := client.IgnoreNotFound(err); err != nil {
 			return ctrl.Result{}, fmt.Errorf("unexpected get error: %w", err)
 		}
-		log.Info("Not found. Ignoring.")
+		logger.Info("Not found. Ignoring.")
 		return ctrl.Result{}, nil
 	}
 
 	issuerSpec, issuerStatus, err := issuerutil.GetSpecAndStatus(issuer)
 	if err != nil {
-		log.Error(err, "Unexpected error while getting issuer spec and status. Not retrying.")
+		logger.Error(err, "Unexpected error while getting issuer spec and status. Not retrying.")
 		return ctrl.Result{}, nil
 	}
 
@@ -102,7 +101,7 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	// Always attempt to update the Ready condition
 	defer func() {
 		if err != nil {
-			issuerutil.SetIssuerReadyCondition(ctx, name, r.Kind, issuerStatus, ejbcaissuer.ConditionFalse, issuerReadyConditionReason, err.Error())
+			issuerutil.SetIssuerReadyCondition(ctx, name, r.Kind, issuerStatus, ejbcaissuerv1alpha1.ConditionFalse, issuerReadyConditionReason, err.Error())
 		}
 		if updateErr := r.Status().Update(ctx, issuer); updateErr != nil {
 			err = utilerrors.NewAggregate([]error{err, updateErr})
@@ -111,7 +110,7 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	}()
 
 	if ready := issuerutil.GetReadyCondition(issuerStatus); ready == nil {
-		issuerutil.SetIssuerReadyCondition(ctx, name, r.Kind, issuerStatus, ejbcaissuer.ConditionUnknown, issuerReadyConditionReason, "First seen")
+		issuerutil.SetIssuerReadyCondition(ctx, name, r.Kind, issuerStatus, ejbcaissuerv1alpha1.ConditionUnknown, issuerReadyConditionReason, "First seen")
 		return ctrl.Result{}, nil
 	}
 
@@ -120,12 +119,12 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	}
 
 	switch issuer.(type) {
-	case *ejbcaissuer.Issuer:
+	case *ejbcaissuerv1alpha1.Issuer:
 		secretName.Namespace = req.Namespace
-	case *ejbcaissuer.ClusterIssuer:
+	case *ejbcaissuerv1alpha1.ClusterIssuer:
 		secretName.Namespace = r.ClusterResourceNamespace
 	default:
-		log.Error(fmt.Errorf("unexpected issuer type: %t", issuer), "Not retrying.")
+		logger.Error(fmt.Errorf("unexpected issuer type: %t", issuer), "Not retrying.")
 		return ctrl.Result{}, nil
 	}
 
@@ -229,7 +228,7 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 		return ctrl.Result{}, fmt.Errorf("%w: %w", errHealthCheckerCheck, err)
 	}
 
-	issuerutil.SetIssuerReadyCondition(ctx, name, r.Kind, issuerStatus, ejbcaissuer.ConditionTrue, issuerReadyConditionReason, "Success")
+	issuerutil.SetIssuerReadyCondition(ctx, name, r.Kind, issuerStatus, ejbcaissuerv1alpha1.ConditionTrue, issuerReadyConditionReason, "Success")
 	return ctrl.Result{RequeueAfter: defaultHealthCheckInterval}, nil
 }
 

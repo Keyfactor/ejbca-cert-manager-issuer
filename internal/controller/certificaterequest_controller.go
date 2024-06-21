@@ -1,5 +1,5 @@
 /*
-Copyright © 2023 Keyfactor
+Copyright © 2024 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,15 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package controller
 
 import (
 	"context"
 	"errors"
 	"fmt"
 
-	"github.com/Keyfactor/ejbca-issuer/internal/ejbca"
-	issuerutil "github.com/Keyfactor/ejbca-issuer/internal/util"
+	ejbcaissuerv1alpha1 "github.com/Keyfactor/ejbca-cert-manager-issuer/api/v1alpha1"
+	"github.com/Keyfactor/ejbca-cert-manager-issuer/internal/ejbca"
+	issuerutil "github.com/Keyfactor/ejbca-cert-manager-issuer/internal/util"
 	cmutil "github.com/cert-manager/cert-manager/pkg/api/util"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
@@ -34,8 +35,6 @@ import (
 	"k8s.io/utils/clock"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	ejbcaissuer "github.com/Keyfactor/ejbca-issuer/api/v1alpha1"
 )
 
 var (
@@ -77,7 +76,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Ignore CertificateRequests if issuerRef doesn't match group
-	if certificateRequest.Spec.IssuerRef.Group != ejbcaissuer.GroupVersion.Group {
+	if certificateRequest.Spec.IssuerRef.Group != ejbcaissuerv1alpha1.GroupVersion.Group {
 		log.Info("Foreign group. Ignoring.", "group", certificateRequest.Spec.IssuerRef.Group)
 		return ctrl.Result{}, nil
 	}
@@ -152,7 +151,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Ignore but log an error if the issuerRef.Kind is Unrecognized
-	issuerGVK := ejbcaissuer.GroupVersion.WithKind(certificateRequest.Spec.IssuerRef.Kind)
+	issuerGVK := ejbcaissuerv1alpha1.GroupVersion.WithKind(certificateRequest.Spec.IssuerRef.Kind)
 	issuerRO, err := r.Scheme.New(issuerGVK)
 	if err != nil {
 		err = fmt.Errorf("%w: %w", errIssuerRef, err)
@@ -167,11 +166,11 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 	var secretNamespace string
 	switch t := issuer.(type) {
-	case *ejbcaissuer.Issuer:
+	case *ejbcaissuerv1alpha1.Issuer:
 		issuerName.Namespace = certificateRequest.Namespace
 		secretNamespace = certificateRequest.Namespace
 		log = log.WithValues("issuer", issuerName)
-	case *ejbcaissuer.ClusterIssuer:
+	case *ejbcaissuerv1alpha1.ClusterIssuer:
 		secretNamespace = r.ClusterResourceNamespace
 		log = log.WithValues("clusterissuer", issuerName)
 	default:
