@@ -1,114 +1,74 @@
-# ejbca-issuer
-// TODO(user): Add simple overview of use/purpose
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+# ejbca-cert-manager-issuer
 
-## Getting Started
+cert-manager external issuer for EJBCA
 
-### Prerequisites
-- go version v1.21.0+
-- docker version 17.03+.
-- kubectl version v1.11.3+.
-- Access to a Kubernetes v1.11.3+ cluster.
+#### Integration status: Pilot - Ready for use in test environments. Not for use in production.
 
-### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
+## About the Keyfactor API Client
 
-```sh
-make docker-build docker-push IMG=<some-registry>/ejbca-issuer:tag
-```
+This API client allows for programmatic management of Keyfactor resources.
 
-**NOTE:** This image ought to be published in the personal registry you specified. 
-And it is required to have access to pull the image from the working environment. 
-Make sure you have the proper permission to the registry if the above commands don’t work.
+## Support for ejbca-cert-manager-issuer
 
-**Install the CRDs into the cluster:**
+ejbca-cert-manager-issuer is open source and supported on best effort level for this tool/library/client.  This means customers can report Bugs, Feature Requests, Documentation amendment or questions as well as requests for customer information required for setup that needs Keyfactor access to obtain. Such requests do not follow normal SLA commitments for response or resolution. If you have a support issue, please open a support ticket via the Keyfactor Support Portal at https://support.keyfactor.com/
 
-```sh
-make install
-```
+###### To report a problem or suggest a new feature, use the **[Issues](../../issues)** tab. If you want to contribute actual bug fixes or proposed enhancements, use the **[Pull requests](../../pulls)** tab.
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
+---
 
-```sh
-make deploy IMG=<some-registry>/ejbca-issuer:tag
-```
 
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin 
-privileges or be logged in as admin.
+---
 
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
 
-```sh
-kubectl apply -k config/samples/
-```
 
->**NOTE**: Ensure that the samples has default values to test it out.
+<!--EJBCA Community logo -->
+<a href="https://ejbca.org">
+    <img src=".github/images/community-ejbca.png?raw=true)" alt="EJBCA logo" title="EJBCA" height="70" />
+</a>
+<!--EJBCA Enterprise logo -->
+<a href="https://www.keyfactor.com/products/ejbca-enterprise/">
+    <img src=".github/images/keyfactor-ejbca-enterprise.png?raw=true)" alt="EJBCA logo" title="EJBCA" height="70" />
+</a>
 
-### To Uninstall
-**Delete the instances (CRs) from the cluster:**
+# Keyfactor EJBCA Issuer for cert-manager
 
-```sh
-kubectl delete -k config/samples/
-```
+[![Go Report Card](https://goreportcard.com/badge/github.com/Keyfactor/ejbca-cert-manager-issuer)](https://goreportcard.com/report/github.com/Keyfactor/ejbca-cert-manager-issuer)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
 
-**Delete the APIs(CRDs) from the cluster:**
+The EJBCA external issuer for cert-manager allows users to enroll certificates from Keyfactor EJBCA using cert-manager.
 
-```sh
-make uninstall
-```
+Cert-manager is a native Kubernetes certificate management controller that allows applications to get their certificates from a variety of CAs (Certification Authorities). It ensures certificates are valid and up to date, it also attempts to renew certificates at a configured time before expiration.
 
-**UnDeploy the controller from the cluster:**
+## Get started
 
-```sh
-make undeploy
-```
+* To install the tool, see [Installation](docs/install.md).
+* To configure and use the tool, see: 
+  * [Usage](docs/config_usage.md)
+  * [Customization](docs/annotations.md)
+  * [End Entity Name Selection](docs/endentitynamecustomization.md)
+* To test the tool, see [Testing the Source](docs/testing.md).
 
-## Project Distribution
+### System Requirements
 
-Following are the steps to build the installer and distribute this project to users.
+For more information, see [Prerequisites](https://github.com/KarolinHem/ejbca-cert-manager-issuer/blob/main/docs/install.md#prerequisites). 
 
-1. Build the installer for the image built and published in the registry:
+## Community Support
+In the [Keyfactor Community](https://www.keyfactor.com/community/), we welcome contributions. 
 
-```sh
-make build-installer IMG=<some-registry>/ejbca-issuer:tag
-```
+The Community software is open-source and community-supported, meaning that **no SLA** is applicable.
 
-NOTE: The makefile target mentioned above generates an 'install.yaml'
-file in the dist directory. This file contains all the resources built
-with Kustomize, which are necessary to install this project without
-its dependencies.
+* To report a problem or suggest a new feature, go to [Issues](../../issues).
+* If you want to contribute actual bug fixes or proposed enhancements, see the [Contributing Guidelines](CONTRIBUTING.md) and go to [Pull requests](../../pulls).
 
-2. Using the installer
+## Commercial Support
 
-Users can just run kubectl apply -f <URL for YAML BUNDLE> to install the project, i.e.:
-
-```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/ejbca-issuer/<tag or branch>/dist/install.yaml
-```
-
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-**NOTE:** Run `make help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+Commercial support is available for [EJBCA Enterprise](https://www.keyfactor.com/products/ejbca-enterprise/).
 
 ## License
+For license information, see **[LICENSE](LICENSE)**. 
 
-Copyright 2024.
+## Related Projects
+See all [Keyfactor EJBCA GitHub projects](https://github.com/orgs/Keyfactor/repositories?q=ejbca). 
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
 
