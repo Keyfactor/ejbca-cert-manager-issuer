@@ -1,6 +1,6 @@
 {
     "$schema": "https://keyfactor.github.io/integration-manifest-schema.json",
-    "integration_type": "api-client",
+    "integration_type": "ejbca",
     "name": "ejbca-cert-manager-issuer",
     "status": "production",
     "link_github":false,
