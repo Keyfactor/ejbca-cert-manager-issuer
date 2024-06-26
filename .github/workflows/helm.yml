@@ -42,8 +42,8 @@ jobs:
       - name: Update Helm App/Chart Version
         shell: bash
         run: |
-          sed -i "s/^version: .*/version: ${{ env.VERSION }}/g" deploy/charts/ejbca-k8s-csr-signer/Chart.yaml
-          sed -i "s/^appVersion: .*/appVersion: \"v${{ env.VERSION }}\"/g" deploy/charts/ejbca-k8s-csr-signer/Chart.yaml
+          sed -i "s/^version: .*/version: ${{ env.VERSION }}/g" deploy/charts/ejbca-cert-manager-issuer/Chart.yaml
+          sed -i "s/^appVersion: .*/appVersion: \"v${{ env.VERSION }}\"/g" deploy/charts/ejbca-cert-manager-issuer/Chart.yaml
 
       # Setup Helm
       # https://github.com/Azure/setup-helm
