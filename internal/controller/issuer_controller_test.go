@@ -1,5 +1,5 @@
 /*
-Copyright © 2023 Keyfactor
+Copyright © 2024 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,13 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package controller
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
-	"github.com/Keyfactor/ejbca-issuer/internal/issuer/signer"
-	issuerutil "github.com/Keyfactor/ejbca-issuer/internal/issuer/util"
+	"testing"
+
+	ejbcaissuerv1alpha1 "github.com/Keyfactor/ejbca-cert-manager-issuer/api/v1alpha1"
+	"github.com/Keyfactor/ejbca-cert-manager-issuer/internal/ejbca"
+	issuerutil "github.com/Keyfactor/ejbca-cert-manager-issuer/internal/util"
 	logrtesting "github.com/go-logr/logr/testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,9 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"testing"
-
-	ejbcaissuer "github.com/Keyfactor/ejbca-issuer/api/v1alpha1"
 )
 
 type fakeHealthChecker struct {
@@ -45,16 +47,37 @@ func (o *fakeHealthChecker) Check() error {
 	return o.errCheck
 }
 
+var newFakeHealthCheckerBuilder = func(builderErr error, checkerErr error) func(context.Context, ...ejbca.Option) (ejbca.HealthChecker, error) {
+	return func(context.Context, ...ejbca.Option) (ejbca.HealthChecker, error) {
+		return &fakeHealthChecker{
+			errCheck: checkerErr,
+		}, builderErr
+	}
+}
+
 func TestIssuerReconcile(t *testing.T) {
+	caCert, rootKey := issueTestCertificate(t, "Root-CA", nil, nil)
+	// caCertPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caCert.Raw})
+
+	// serverCert, _ := issueTestCertificate(t, "Server", caCert, rootKey)
+	// serverCertPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: serverCert.Raw})
+	// caChain := append(serverCertPem, caCertPem...)
+
+	authCert, authKey := issueTestCertificate(t, "Auth", caCert, rootKey)
+	keyByte, err := x509.MarshalECPrivateKey(authKey)
+	require.NoError(t, err)
+	authCertPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: authCert.Raw})
+	authKeyPem := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyByte})
+
 	type testCase struct {
 		kind                         string
 		name                         types.NamespacedName
 		objects                      []client.Object
-		healthCheckerBuilder         signer.HealthCheckerBuilder
+		healthCheckerBuilder         ejbca.HealthCheckerBuilder
 		clusterResourceNamespace     string
 		expectedResult               ctrl.Result
 		expectedError                error
-		expectedReadyConditionStatus ejbcaissuer.ConditionStatus
+		expectedReadyConditionStatus ejbcaissuerv1alpha1.ConditionStatus
 	}
 
 	tests := map[string]testCase{
@@ -62,68 +85,74 @@ func TestIssuerReconcile(t *testing.T) {
 			kind: "Issuer",
 			name: types.NamespacedName{Namespace: "ns1", Name: "issuer1"},
 			objects: []client.Object{
-				&ejbcaissuer.Issuer{
+				&ejbcaissuerv1alpha1.Issuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1",
 						Namespace: "ns1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "issuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionUnknown,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionUnknown,
 							},
 						},
 					},
 				},
 				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1-credentials",
 						Namespace: "ns1",
 					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
 				},
 			},
-			healthCheckerBuilder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte, map[string][]byte) (signer.HealthChecker, error) {
-				return &fakeHealthChecker{}, nil
-			},
-			expectedReadyConditionStatus: ejbcaissuer.ConditionTrue,
+			healthCheckerBuilder:         newFakeHealthCheckerBuilder(nil, nil),
+			expectedReadyConditionStatus: ejbcaissuerv1alpha1.ConditionTrue,
 			expectedResult:               ctrl.Result{RequeueAfter: defaultHealthCheckInterval},
 		},
 		"success-clusterissuer": {
 			kind: "ClusterIssuer",
 			name: types.NamespacedName{Name: "clusterissuer1"},
 			objects: []client.Object{
-				&ejbcaissuer.ClusterIssuer{
+				&ejbcaissuerv1alpha1.ClusterIssuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "clusterissuer1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "clusterissuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionUnknown,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionUnknown,
 							},
 						},
 					},
 				},
 				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "clusterissuer1-credentials",
 						Namespace: "kube-system",
 					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
 				},
 			},
-			healthCheckerBuilder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte, map[string][]byte) (signer.HealthChecker, error) {
-				return &fakeHealthChecker{}, nil
-			},
+			healthCheckerBuilder:         newFakeHealthCheckerBuilder(nil, nil),
 			clusterResourceNamespace:     "kube-system",
-			expectedReadyConditionStatus: ejbcaissuer.ConditionTrue,
+			expectedReadyConditionStatus: ejbcaissuerv1alpha1.ConditionTrue,
 			expectedResult:               ctrl.Result{RequeueAfter: defaultHealthCheckInterval},
 		},
 		"issuer-kind-Unrecognized": {
@@ -136,109 +165,115 @@ func TestIssuerReconcile(t *testing.T) {
 		"issuer-missing-ready-condition": {
 			name: types.NamespacedName{Namespace: "ns1", Name: "issuer1"},
 			objects: []client.Object{
-				&ejbcaissuer.Issuer{
+				&ejbcaissuerv1alpha1.Issuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1",
 						Namespace: "ns1",
 					},
 				},
 			},
-			expectedReadyConditionStatus: ejbcaissuer.ConditionUnknown,
+			expectedReadyConditionStatus: ejbcaissuerv1alpha1.ConditionUnknown,
 		},
 		"issuer-missing-secret": {
 			name: types.NamespacedName{Namespace: "ns1", Name: "issuer1"},
 			objects: []client.Object{
-				&ejbcaissuer.Issuer{
+				&ejbcaissuerv1alpha1.Issuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1",
 						Namespace: "ns1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "issuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionUnknown,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionUnknown,
 							},
 						},
 					},
 				},
 			},
 			expectedError:                errGetAuthSecret,
-			expectedReadyConditionStatus: ejbcaissuer.ConditionFalse,
+			expectedReadyConditionStatus: ejbcaissuerv1alpha1.ConditionFalse,
 		},
 		"issuer-failing-healthchecker-builder": {
 			name: types.NamespacedName{Namespace: "ns1", Name: "issuer1"},
 			objects: []client.Object{
-				&ejbcaissuer.Issuer{
+				&ejbcaissuerv1alpha1.Issuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1",
 						Namespace: "ns1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "issuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionUnknown,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionUnknown,
 							},
 						},
 					},
 				},
 				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1-credentials",
 						Namespace: "ns1",
 					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
 				},
 			},
-			healthCheckerBuilder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte, map[string][]byte) (signer.HealthChecker, error) {
-				return nil, errors.New("simulated health checker builder error")
-			},
+			healthCheckerBuilder:         newFakeHealthCheckerBuilder(errors.New("simulated health checker builder error"), nil),
 			expectedError:                errHealthCheckerBuilder,
-			expectedReadyConditionStatus: ejbcaissuer.ConditionFalse,
+			expectedReadyConditionStatus: ejbcaissuerv1alpha1.ConditionFalse,
 		},
 		"issuer-failing-healthchecker-check": {
 			name: types.NamespacedName{Namespace: "ns1", Name: "issuer1"},
 			objects: []client.Object{
-				&ejbcaissuer.Issuer{
+				&ejbcaissuerv1alpha1.Issuer{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1",
 						Namespace: "ns1",
 					},
-					Spec: ejbcaissuer.IssuerSpec{
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
 						EjbcaSecretName: "issuer1-credentials",
 					},
-					Status: ejbcaissuer.IssuerStatus{
-						Conditions: []ejbcaissuer.IssuerCondition{
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
 							{
-								Type:   ejbcaissuer.IssuerConditionReady,
-								Status: ejbcaissuer.ConditionUnknown,
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionUnknown,
 							},
 						},
 					},
 				},
 				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "issuer1-credentials",
 						Namespace: "ns1",
 					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
 				},
 			},
-			healthCheckerBuilder: func(context.Context, *ejbcaissuer.IssuerSpec, map[string][]byte, map[string][]byte) (signer.HealthChecker, error) {
-				return &fakeHealthChecker{errCheck: errors.New("simulated health check error")}, nil
-			},
+			healthCheckerBuilder:         newFakeHealthCheckerBuilder(nil, errors.New("simulated health check error")),
 			expectedError:                errHealthCheckerCheck,
-			expectedReadyConditionStatus: ejbcaissuer.ConditionFalse,
+			expectedReadyConditionStatus: ejbcaissuerv1alpha1.ConditionFalse,
 		},
 	}
 
 	scheme := runtime.NewScheme()
-	require.NoError(t, ejbcaissuer.AddToScheme(scheme))
+	require.NoError(t, ejbcaissuerv1alpha1.AddToScheme(scheme))
 	require.NoError(t, corev1.AddToScheme(scheme))
 
 	for name, tc := range tests {
@@ -246,6 +281,7 @@ func TestIssuerReconcile(t *testing.T) {
 			fakeClient := fake.NewClientBuilder().
 				WithScheme(scheme).
 				WithObjects(tc.objects...).
+				WithStatusSubresource(tc.objects...).
 				Build()
 			if tc.kind == "" {
 				tc.kind = "Issuer"
@@ -283,7 +319,7 @@ func TestIssuerReconcile(t *testing.T) {
 	}
 }
 
-func assertIssuerHasReadyCondition(t *testing.T, status ejbcaissuer.ConditionStatus, issuerStatus *ejbcaissuer.IssuerStatus) {
+func assertIssuerHasReadyCondition(t *testing.T, status ejbcaissuerv1alpha1.ConditionStatus, issuerStatus *ejbcaissuerv1alpha1.IssuerStatus) {
 	condition := issuerutil.GetReadyCondition(issuerStatus)
 	if !assert.NotNil(t, condition, "Ready condition not found") {
 		return
