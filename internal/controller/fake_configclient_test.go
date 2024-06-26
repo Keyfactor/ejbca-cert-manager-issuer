@@ -1,5 +1,5 @@
 /*
-Copyright © 2023 Keyfactor
+Copyright © 2024 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package controller
 
 import (
 	"context"
-	"github.com/Keyfactor/ejbca-issuer/internal/issuer/util"
+
+	"github.com/Keyfactor/ejbca-cert-manager-issuer/internal/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
