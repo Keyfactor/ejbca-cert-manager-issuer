@@ -57,7 +57,7 @@ EJBCA Issuer is installed using a Helm chart. The chart is available in the [EJB
 
 > The Helm chart installs the EJBCA Issuer CRDs by default. The CRDs can be installed manually with the `make install` target.
 
-## Authentication
+# Authentication
 
 EJBCA Issuer supports authentication to EJBCA using mTLS (client certificate & key) or the OAuth 2.0 "client credentials" token flow (sometimes called two-legged OAuth 2.0).
 
@@ -93,7 +93,7 @@ kubectl -n ejbca-issuer-system create secret generic ejbca-secret \
 
 > Audience and Scopes are optional
 
-## CA Bundle
+# CA Bundle
 
 If the EJBCA API is configured to use a self-signed certificate or with a certificate that isn't publically trusted, the CA certificate must be provided as a Kubernetes secret.
 
@@ -101,7 +101,7 @@ If the EJBCA API is configured to use a self-signed certificate or with a certif
 kubectl -n ejbca-issuer-system create secret generic ejbca-ca-secret --from-file=ca.crt
 ```
 
-## Creating Issuer and ClusterIssuer resources
+# Creating Issuer and ClusterIssuer resources
 
 The `ejbca-issuer.keyfactor.com/v1alpha1` API version supports Issuer and ClusterIssuer resources. The Issuer resource is namespaced, while the ClusterIssuer resource is cluster-scoped.
 
@@ -185,7 +185,7 @@ For example, ClusterIssuer resources can be used to issue certificates for resou
     >
     > The `endEntityName` field in the Issuer and ClusterIssuer spec is described [here](docs/endentitynamecustomization.md)
 
-## Creating a Certificate
+# Creating a Certificate
 
 Once an Issuer or ClusterIssuer resource is created, they can be used to issue certificates using cert-manager. The two most important concepts are `Certificate` and `CertificateRequest` resources. 
 
@@ -229,7 +229,7 @@ spec:
 
 > All fields in EJBCA Issuer and ClusterIssuer `spec` can be overridden by applying Kubernetes Annotations to Certificates _and_ CertificateRequests. See [runtime customization for more](docs/annotations.md) 
 
-### Approving Certificate Requests
+## Approving Certificate Requests
 Unless the cert-manager internal approver automatically approves the request, newly created CertificateRequest resources
 will be in a `Pending` state until they are approved. CertificateRequest resources can be approved manually by using
 [cmctl](https://cert-manager.io/docs/reference/cmctl/#approve-and-deny-certificaterequests). The following is an example
