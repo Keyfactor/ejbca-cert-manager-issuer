@@ -35,11 +35,18 @@ type IssuerSpec struct {
 	// namespace that the controller runs in).
 	EjbcaSecretName string `json:"ejbcaSecretName"`
 
-	// The name of the secret containing the CA bundle to use when verifying
+	// The name of a Secret containing the CA bundle to use when verifying
 	// EJBCA's server certificate. If specified, the CA bundle will be added to
 	// the client trust roots for the EJBCA issuer.
 	// +optional
 	CaBundleSecretName string `json:"caBundleSecretName"`
+
+	// The name of a ConfigMap containing the CA bundle to use when verifying
+	// EJBCA's server certificate. If specified, the CA bundle will be added to
+	// the client trust roots for the EJBCA issuer. Takes precedence over CaBundleSecretName
+	// if specified.
+	// +optional
+	CaBundleConfigMapName string `json:"caBundleConfigMapName"`
 
 	// Optional field that overrides the default for how the EJBCA issuer should determine the
 	// name of the end entity to reference or create when signing certificates.
