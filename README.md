@@ -9,6 +9,8 @@
 <a href="https://goreportcard.com/report/github.com/keyfactor/ejbca-cert-manager-issuer"><img src="https://goreportcard.com/badge/github.com/keyfactor/ejbca-cert-manager-issuer" alt="Go Report Card"></a>
 <a href="https://img.shields.io/badge/License-Apache%202.0-blue.svg"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License Apache 2.0"></a>
 
+
+
 ## Overview
 
 The EJBCA Issuer for [cert-manager](https://cert-manager.io/) is a [CertificateRequest](https://cert-manager.io/docs/usage/certificaterequest/) controller that issues certificates using [EJBCA](https://ejbca.org/).
@@ -44,6 +46,48 @@ Before starting, ensure that the following requirements are met:
 
 
 ## Getting Started
+
+### Configuring EJBCA
+
+EJBCA Issuer enrolls certificates by creating or updating an [End Entity](https://doc.primekey.com/ejbca/ejbca-operations/ejbca-ca-concept-guide/end-entities-overview) via the PKCS10 Enroll REST request. Before using EJBCA Issuer, you must create or identify an End Entity Profile _and_ a Certificate Profile suitable for your usecase.
+
+1. **Create or identify a Certificate Profile**
+
+    Certificate Profiles in EJBCA define the properties and constraints of the certificates being issued. This includes settings like key usage, extended key usage, validity period, allowed key algorithms, and signature algorithms.
+
+    - If you haven't created a Certificate Profile before, [this guide](https://doc.primekey.com/ejbca/ejbca-operations/ejbca-operations-guide/ca-operations-guide/managing-certificate-profiles/create-a-certificate-profile-for-ssl-servers) walks you through how to create a Certificate Profile in the EJBCA AdminWeb.
+
+    You should make careful note of the allowed Key Types and Key Sizes on the Certificate Profile. When creating cert-manager [Certificates](https://cert-manager.io/docs/usage/certificate/), you must make sure that the key `algorithm` and `size` are allowed by your Certificate Profile in EJBCA.    
+
+2. **Create or identify an End Entity Profile**
+
+    End Entity Profiles in EJBCA define the rules for managing certificate requesters (end entities) and their associated data. They define which fields are required, optional, or hidden during the certificate enrollment process (e.g., common name, email, organization, SANs). End Entity Profiles control the type of information that end entities must provide and how that information is validated before issuing certificates.
+
+    - If you haven't created an End Entity Profile before, [this guide](https://doc.primekey.com/ejbca/ejbca-operations/ejbca-operations-guide/ca-operations-guide/end-entity-profile-operations/create-an-end-entity-profile-for-ssl-servers) walks you through how to create an End Entity Profile in the EJBCA AdminWeb.
+
+    You should make careful note of the **Subject DN Attributes** and **Other Subject Attributes** specified by your End Entity Profile. When creating cert-manager [Certificates](https://cert-manager.io/docs/usage/certificate/), you must make sure that the `subject`, `commonName`, `dnsNames`, etc. are allowed and/or configured correctly by your End Entity Profile in EJBCA.
+
+3. **Configure EJBCA Roles and Access Rules**
+
+    Roles define groups of users or administrators with specific permissions. In EJBCA, users and administrators are identified by being members of a particular role. Access Rules are permissions that dictate what actions a role can perform and what parts of the system it can interact with.  
+
+    - If you haven't created Roles and Access rules before, [this guide](https://doc.primekey.com/ejbca/ejbca-operations/ejbca-ca-concept-guide/roles-and-access-rules) provides a primer on these concepts in EJCBA.
+
+    If your security policy requires fine-grain access control, EJBCA Issuer requires the following Access Rules.
+
+    | Regular Access Rules                    | Permission         |
+    |-----------------------------------------|--------------------|
+    | `/ra_functionality/approve_end_entity/` | Allow              |
+    | `/ra_functionality/create_end_entity/`  | Allow              |
+    | `/ra_functionality/edit_end_entity/`    | Allow              |
+
+    | CA Access Rules                         | Permission         |
+    |-----------------------------------------|--------------------|
+    | `/ca/<your CA name>/`                   | Allow              |
+
+    | End Entity Profile Access Rules                           | Permission         |
+    |-----------------------------------------------------------|--------------------|
+    | `/endentityprofilesrules/<your End Entity Profile Name>/` | Allow              |
 
 ### Installing EJBCA Issuer
 
