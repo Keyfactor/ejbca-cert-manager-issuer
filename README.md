@@ -9,8 +9,6 @@
 <a href="https://goreportcard.com/report/github.com/keyfactor/ejbca-cert-manager-issuer"><img src="https://goreportcard.com/badge/github.com/keyfactor/ejbca-cert-manager-issuer" alt="Go Report Card"></a>
 <a href="https://img.shields.io/badge/License-Apache%202.0-blue.svg"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License Apache 2.0"></a>
 
-
-
 ## Overview
 
 The EJBCA Issuer for [cert-manager](https://cert-manager.io/) is a [CertificateRequest](https://cert-manager.io/docs/usage/certificaterequest/) controller that issues certificates using [EJBCA](https://ejbca.org/).
@@ -51,8 +49,6 @@ Before starting, ensure that the following requirements are met:
 
 EJBCA Issuer is installed using a Helm chart. The chart is available in the [EJBCA cert-manager Helm repository](https://keyfactor.github.io/ejbca-cert-manager-issuer/).
 
-
-
 1. Verify that at least one Kubernetes node is running 
 
     ```shell
@@ -88,14 +84,14 @@ Credentials must be configured using a Kubernetes Secret. By default, the secret
 
 > EJBCA Issuer can read secrets in the Issuer namespace if `--set "secretConfig.useClusterRoleForSecretAccess=true"` flag is set when installing the Helm chart.
 
-##### mTLS
+### mTLS
 
 Create a K8s TLS secret containing the client certificate and key to authenticate with EJBCA:
 ```shell
 kubectl -n ejbca-issuer-system create secret tls ejbca-secret --cert=client.crt --key=client.key
 ```
 
-##### OAuth
+### OAuth
 
 Create an Opaque secret containing the client ID and client secret to authenticate with EJBCA:
 
@@ -142,13 +138,13 @@ For example, ClusterIssuer resources can be used to issue certificates for resou
     The `spec` field of both the Issuer and ClusterIssuer resources use the following fields:
     | Field Name               | Description                                                                                                                                   |
     |--------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
-    | hostname                | The hostname of the EJBCA instance                                                                                                           |
-    | ejbcaSecretName         | The name of the Kubernetes secret containing the client certificate and key or OAuth 2.0 credentials                                          |
-    | certificateAuthorityName| The name of the EJBCA certificate authority to use. For example, `ManagementCA`                                                              |
-    | certificateProfileName  | The name of the EJBCA certificate profile to use. For example, `ENDUSER`                                                                     |
-    | endEntityProfileName    | The name of the EJBCA end entity profile to use. For example, `istio`                                                                        |
-    | caBundleSecretName      | The name of the Kubernetes secret containing the CA certificate. Optional, required if using a self-signed or untrusted root certificate      |
-    | endEntityName           | The name of the end entity to use. Optional. Refer to the EJBCA End Entity Name Configuration section for more details on how this field is used |
+    | hostname                 | The hostname of the EJBCA instance                                                                                                           |
+    | ejbcaSecretName          | The name of the Kubernetes secret containing the client certificate and key or OAuth 2.0 credentials                                          |
+    | certificateAuthorityName | The name of the EJBCA certificate authority to use. For example, `ManagementCA`                                                              |
+    | certificateProfileName   | The name of the EJBCA certificate profile to use. For example, `ENDUSER`                                                                     |
+    | endEntityProfileName     | The name of the EJBCA end entity profile to use. For example, `istio`                                                                        |
+    | caBundleSecretName       | The name of the Kubernetes secret containing the CA certificate. Optional, required if using a self-signed or untrusted root certificate      |
+    | endEntityName            | The name of the end entity to use. Optional. Refer to the EJBCA End Entity Name Configuration section for more details on how this field is used |
 
     > If a different combination of hostname/certificate authority/certificate profile/end entity profile is required, a new Issuer or ClusterIssuer resource must be created. Each resource instantiation represents a single configuration.
 
@@ -212,8 +208,7 @@ For example, ClusterIssuer resources can be used to issue certificates for resou
 
 Once an Issuer or ClusterIssuer resource is created, they can be used to issue certificates using cert-manager. The two most important concepts are `Certificate` and `CertificateRequest` resources. 
 
-1. `Certificate` resources represent a single X.509 certificate and its associated attributes, and automatically renews the certificate
-and keeps it up to date. 
+1. `Certificate` resources represent a single X.509 certificate and its associated attributes. cert-manager maintains the corresponding certificate, including renewal when appropriate. 
 2. When `Certificate` resources are created, cert-manager creates a corresponding `CertificateRequest` that targets a specific Issuer or ClusterIssuer to actually issue the certificate.
 
 > To learn more about cert-manager, see the [cert-manager documentation](https://cert-manager.io/docs/).
