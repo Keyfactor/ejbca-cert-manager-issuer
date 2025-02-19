@@ -39,9 +39,16 @@ spec:
           spec:
             description: IssuerSpec defines the desired state of Issuer
             properties:
+              caBundleConfigMapName:
+                description: |-
+                  The name of a ConfigMap containing the CA bundle to use when verifying
+                  EJBCA's server certificate. If specified, the CA bundle will be added to
+                  the client trust roots for the EJBCA issuer. Takes precedence over CaBundleSecretName
+                  if specified.
+                type: string
               caBundleSecretName:
                 description: |-
-                  The name of the secret containing the CA bundle to use when verifying
+                  The name of a Secret containing the CA bundle to use when verifying
                   EJBCA's server certificate. If specified, the CA bundle will be added to
                   the client trust roots for the EJBCA issuer.
                 type: string
