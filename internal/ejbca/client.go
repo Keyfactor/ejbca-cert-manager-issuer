@@ -152,5 +152,5 @@ func (s *signer) parseEjbcaError(ctx context.Context, detail string, err error) 
 
 	logger.Error(err, "EJBCA returned an error")
 
-	return fmt.Errorf(errString)
+	return fmt.Errorf("%s", errString)
 }

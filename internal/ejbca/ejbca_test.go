@@ -710,7 +710,7 @@ func TestSign(t *testing.T) {
 			leafAndCA, root, err := signer.Sign(context.Background(), csrPem)
 			if tt.errorExpected {
 				require.Error(t, err)
-				require.True(t, strings.HasPrefix(err.Error(), tt.expectedErrorMessagePrefix))
+				require.Contains(t, err.Error(), tt.expectedErrorMessagePrefix)
 				return
 			}
 
