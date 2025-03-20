@@ -11,11 +11,12 @@ on:
 
 jobs:
   call-starter-workflow:
-    uses: keyfactor/actions/.github/workflows/starter.yml@ejbca-readme-updates
+    uses: keyfactor/actions/.github/workflows/starter.yml@d75ddd58537af8e5b6961b6e571a09ecd751c5b5 # v3.0
     secrets:
       token: ${{ secrets.V2BUILDTOKEN}}
       APPROVE_README_PUSH: ${{ secrets.APPROVE_README_PUSH}}
       gpg_key: ${{ secrets.KF_GPG_PRIVATE_KEY }}
       gpg_pass: ${{ secrets.KF_GPG_PASSPHRASE }}
+      scan_token: ${{ secrets.SAST_TOKEN }}
       docker-user: ${{ secrets.DOCKER_USER }}
       docker-token:  ${{ secrets.DOCKER_PWD }}

@@ -1,10 +1,10 @@
 # Build the manager binary
-ARG GOIMAGE=golang:1.22.3
+ARG GOIMAGE=golang:1.23.6
 ARG BASEIMAGE=gcr.io/distroless/static:nonroot
 ARG TARGETOS
 ARG TARGETARCH
 
-FROM ${GOIMAGE} as builder
+FROM ${GOIMAGE} AS builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
