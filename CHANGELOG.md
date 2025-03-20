@@ -1,3 +1,13 @@
+# v2.1.0
+
+## Chores
+* Update Go library dependencies
+* Update documentation for issuer and cluster issuer types
+* Address linting issues
+
+## Fixes
+* Fix CI pipeline failures 
+
 # v2.0.0
 
 ## Chores
