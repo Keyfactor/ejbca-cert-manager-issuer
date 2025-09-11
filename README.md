@@ -32,7 +32,7 @@ Commercial support is available for [EJBCA Enterprise](https://www.keyfactor.com
 
 Before starting, ensure that the following requirements are met:
 
-- [Suported](https://docs.keyfactor.com/ejbca/latest/supported-versions) version of EJBCA [Community](https://www.ejbca.org/) or EJBCA [Enterprise](https://www.keyfactor.com/products/ejbca-enterprise/)
+- [Supported](https://docs.keyfactor.com/ejbca/latest/supported-versions) version of EJBCA [Community](https://www.ejbca.org/) or EJBCA [Enterprise](https://www.keyfactor.com/products/ejbca-enterprise/)
     - EJBCA must be properly configured according to the [product docs](https://software.keyfactor.com/Content/MasterTopics/Home.htm). 
     - The "REST Certificate Management" protocol must be enabled under System Configuration > Protocol Configuration. The following endpoints must be available:
         - `/ejbca/ejbca-rest-api/v1/certificate/pkcs10enroll`
