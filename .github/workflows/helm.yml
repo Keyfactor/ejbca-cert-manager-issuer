@@ -1,20 +1,12 @@
 name: Build and Release Helm Chart
 on:
-  pull_request:
-    branches:
-      - 'release-*'
-    types:
-      # action should run when the pull request is closed
-      # (regardless of whether it was merged or just closed)
-      - closed
-      # Make sure the action runs every time new commits are
-      # pushed to the pull request's branch
-      - synchronize
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'     # 1.2.3 (exact match) - release candidates are excluded
 
 jobs:
   helm:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.merged == true
     steps:
       - name: Set IMAGE_NAME
         run: |
@@ -23,20 +15,20 @@ jobs:
       # Checkout code
       # https://github.com/actions/checkout
       - name: Checkout code
-        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
+        uses: actions/checkout@v4
 
       # Extract metadata (tags, labels) to use in Helm chart
       # https://github.com/docker/metadata-action
       - name: Extract Docker metadata
         id: meta
-        uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
+        uses: docker/metadata-action@v5.0.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
       # Set version from DOCKER_METADATA_OUTPUT_VERSION as environment variable
       - name: Set Version
         run: |
-          echo "VERSION=${DOCKER_METADATA_OUTPUT_VERSION:8}.0" >> $GITHUB_ENV # Eventually will build this into Keyfactor bootstrap
+          echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV # Eventually will build this into Keyfactor bootstrap
 
       # Change version and appVersion in Chart.yaml to the tag in the closed PR
       - name: Update Helm App/Chart Version
@@ -48,7 +40,7 @@ jobs:
       # Setup Helm
       # https://github.com/Azure/setup-helm
       - name: Install Helm
-        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
+        uses: azure/setup-helm@v3.5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -61,7 +53,7 @@ jobs:
       # Build and release Helm chart to GitHub Pages
       # https://github.com/helm/chart-releaser-action
       - name: Run chart-releaser
-        uses: helm/chart-releaser-action@be16258da8010256c6e82849661221415f031968 # v1.5.0
+        uses: helm/chart-releaser-action@v1.5.0
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         with:

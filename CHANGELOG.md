@@ -1,3 +1,17 @@
+# v2.1.1
+# Fixes:
+- Fix issue with Helm chart not publishing correct tag (https://github.com/Keyfactor/ejbca-cert-manager-issuer/issues/89)
+
+# Chores:
+- Fix small typo in link description
+- Aligned with EJBCA & SignServer template repo
+- Bump versions of GitHub Actions steps
+  - `actions/checkout` bumped from v4 to v5
+  - `setup-go` bumped from v4.1.0 to v6
+- Dependency updates
+  - `github.com/cert-manager/cert-manager` bumped from `v1.17.1` to `v1.18.2`
+- Bump Go version in `go.mod` from `1.23.0` to `1.24.0`
+
 # v2.1.0
 
 ## Chores
