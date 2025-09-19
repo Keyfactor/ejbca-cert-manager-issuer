@@ -1,12 +1,35 @@
 #!/bin/bash
 
+# TODO: We are getting some failures in the CI/CD pipeline. I'm keeping this file around for safekeeping as it is a little less wieldy than the end-to-end tests
+# and there may be benefit to how the integration test works in a CI/CD pipeline over the E2E tests. Will come back to this at a later time.
+
 reconciler_namespace="ejbca-issuer-system"
 reconciler_chart_name="ejbca-cert-manager-issuer"
 version="latest"
 
+# checks whether the provided kubernetes namespace exists
+ns_exists () {
+    local ns=$1
+    if [ "$(kubectl get namespace -o json | jq --arg namespace "$ns" -e '.items[] | select(.metadata.name == $namespace) | .metadata.name')" ]; then
+        return 0
+    fi
+    return 1
+}
+
 echo "Building docker image"
 make docker-build DOCKER_REGISTRY=keyfactor DOCKER_IMAGE_NAME="$reconciler_chart_name" VERSION="$version"
 kind load docker-image keyfactor/ejbca-cert-manager-issuer:latest --name chart-testing
+
+if ! kind get clusters | grep -q "^chart-testing$"; then
+  kind create cluster --name chart-testing # local only
+else
+  echo "kind cluster 'chart-testing' already exists"
+fi
+
+if ns_exists "$reconciler_namespace"; then
+  echo "existing namespace $reconciler_namespace found. Deleting..."
+  kubectl delete namespace "$reconciler_namespace"
+fi
 
 echo "Deploying $reconciler_chart_name Helm chart"
 helm_install_args=(
@@ -23,7 +46,6 @@ helm_install_args=(
 
 if ! helm "${helm_install_args[@]}" ; then
     echo "Failed to install EJBCA"
-    kubectl delete namespace "$EJBCA_NAMESPACE"
     exit 1
 fi
 
