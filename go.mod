@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	github.com/Keyfactor/ejbca-go-client-sdk v1.0.2
 	github.com/cert-manager/cert-manager v1.18.2
-	github.com/go-logr/logr v1.4.2
+	github.com/go-logr/logr v1.4.3
 	github.com/onsi/ginkgo/v2 v2.22.0
 	github.com/onsi/gomega v1.36.1
 	github.com/stretchr/testify v1.10.0
