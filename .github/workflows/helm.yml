@@ -46,7 +46,7 @@ jobs:
 
       # Checkout code
       - name: Checkout code at tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ steps.tag_ref.outputs.checkout_ref }}
           fetch-depth: 0  # Fetch full history for better context
