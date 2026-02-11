@@ -72,8 +72,8 @@ SIGNER_CA_SECRET_NAME="ca-secret"
 CERTIFICATE_CRD_FQTN="certificates.cert-manager.io"
 CERTIFICATEREQUEST_CRD_FQTN="certificaterequests.cert-manager.io"
 
-CR_C_NAME="cert"
-CR_CR_NAME="cert-1"
+CR_C_NAME="ejbca-cert"
+CR_CR_NAME="ejbca-cert-1"
 CR_C_SECRET_NAME="$CR_C_NAME-tls"
 
 set -e # Exit on any error
@@ -529,12 +529,13 @@ wait_for_certificate_request() {
     local end_time=$(($(date +%s) + timeout))
 
     while [ $(date +%s) -lt $end_time ]; do
-        local cr_count=$(kubectl -n issuer-playground get certificaterequests -o json | \
+        local cr_count=$(kubectl -n $ISSUER_NAMESPACE get certificaterequests -o json | \
             jq -r '.items[] | .metadata.name' | wc -l)
 
         cr_count=$(echo "$cr_count" | tr -d ' ')
 
         if [ "$cr_count" -gt 0 ]; then
+            sleep 2 # add a buffer to avoid "resource not found" error
             echo "✅ CertificateRequest created"
             return 0
         fi
@@ -720,14 +721,14 @@ check_for_certificate_secret
 echo "🧪✅ Test 1 completed successfully."
 echo ""
 
-echo "🧪💬 Test 2: A generated certificate request should be successfully issued by ClusterIssuer."
+echo "🧪💬 Test 1a: A generated certificate request should be successfully issued by ClusterIssuer."
 regenerate_cluster_issuer
 regenerate_certificate ClusterIssuer
 wait_for_certificate_request
 approve_certificate_request
 check_certificate_request_status
 check_for_certificate_secret
-echo "🧪✅ Test 2 completed successfully."
+echo "🧪✅ Test 1a completed successfully."
 echo ""
 
 
