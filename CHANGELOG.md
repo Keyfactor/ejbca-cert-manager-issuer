@@ -1,8 +1,14 @@
+# v2.1.3
+## Chores:
+- Build Docker image from Go 1.24 instead of 1.24.6
+- Update GitHub Actions workflow versions
+- Update Go dependencies
+
 # v2.1.1
 # Fixes:
 - Fix issue with Helm chart not publishing correct tag (https://github.com/Keyfactor/ejbca-cert-manager-issuer/issues/89)
 
-# Chores:
+## Chores:
 - Fix small typo in link description
 - Aligned with EJBCA & SignServer template repo
 - Bump versions of GitHub Actions steps

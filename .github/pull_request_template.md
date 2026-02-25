@@ -14,4 +14,4 @@
 - [ ] I have kept the patch limited to only change the parts related to the patch
 - [ ] This change requires a documentation update
 
-See also [Contributing Guidelines](../CONTRIBUTING.md).
+See also [Contributing Guidelines](https://github.com/Keyfactor/ejbca-cert-manager-issuer/blob/main/CONTRIBUTING.md).
