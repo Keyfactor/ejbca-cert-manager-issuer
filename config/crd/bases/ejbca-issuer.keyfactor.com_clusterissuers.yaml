@@ -46,6 +46,12 @@ spec:
                   the client trust roots for the EJBCA issuer. Takes precedence over CaBundleSecretName
                   if specified.
                 type: string
+              caBundleKey:
+                description: |-
+                  The key in the Secret or ConfigMap containing the CA certificate bundle.
+                  Applies to both caBundleSecretName and caBundleConfigMapName.
+                  If unspecified, the last key alphabetically in the Secret or ConfigMap will be used.
+                type: string
               caBundleSecretName:
                 description: |-
                   The name of a Secret containing the CA bundle to use when verifying
