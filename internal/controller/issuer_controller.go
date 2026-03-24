@@ -42,7 +42,7 @@ var (
 	errGetAuthSecret        = errors.New("failed to get Secret containing credentials")
 	errGetCaSecret          = errors.New("caBundleSecretName specified a name, but failed to get Secret containing CA certificate")
 	errGetCaConfigMap       = errors.New("caBundleConfigMapName specified a name, but failed to get ConfigMap containing CA certificate")
-	errGetCaConfigMapKey    = errors.New("caBundleConfigMapName specified a name, but failed to get key 'ca-bundle.crt' containing CA certificate")
+	errGetCaConfigKey       = errors.New("caBundleKey specified a name, but failed to get key from CA bundle Secret or ConfigMap")
 	errHealthCheckerBuilder = errors.New("failed to build the healthchecker")
 	errHealthCheckerCheck   = errors.New("healthcheck failed")
 )
@@ -180,6 +180,8 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 func (r *IssuerReconciler) fetchCACertBytes(ctx context.Context, issuerSpec *ejbcaissuerv1alpha1.IssuerSpec, namespace string) ([]byte, error) {
 	logger := ctrl.LoggerFrom(ctx)
 
+	var caData map[string][]byte
+
 	switch {
 	case issuerSpec.CaBundleConfigMapName != "":
 		logger.Info("using CA bundle config map name", "configMapName", issuerSpec.CaBundleConfigMapName)
@@ -188,11 +190,11 @@ func (r *IssuerReconciler) fetchCACertBytes(ctx context.Context, issuerSpec *ejb
 		if err := r.ConfigClient.GetConfigMap(caConfigMapName, &caConfigMap); err != nil {
 			return nil, fmt.Errorf("%w, configMap name: %s, reason: %w", errGetCaConfigMap, caConfigMapName, err)
 		}
-		caBundleString, ok := caConfigMap.Data["ca-bundle.crt"]
-		if !ok {
-			return nil, fmt.Errorf("%w, configMap name: %s, reason: %v", errGetCaConfigMapKey, caConfigMapName, "ca-bundle.crt key not found")
+
+		caData = make(map[string][]byte)
+		for key, value := range caConfigMap.Data {
+			caData[key] = []byte(value)
 		}
-		return []byte(caBundleString), nil
 	case issuerSpec.CaBundleSecretName != "":
 		logger.Info("using CA bundle secret name", "secretName", issuerSpec.CaBundleSecretName)
 		caSecretName := types.NamespacedName{Name: issuerSpec.CaBundleSecretName, Namespace: namespace}
@@ -200,17 +202,33 @@ func (r *IssuerReconciler) fetchCACertBytes(ctx context.Context, issuerSpec *ejb
 		if err := r.ConfigClient.GetSecret(caSecretName, &caSecret); err != nil {
 			return nil, fmt.Errorf("%w, secret name: %s, reason: %w", errGetCaSecret, caSecretName, err)
 		}
-		// There is no requirement that the CA certificate is stored under a specific
-		// key in the secret, so we can just iterate over the map and effectively select
-		// the last value in the map
-		for _, b := range caSecret.Data {
-			return b, nil
-		}
-		return nil, nil
+
+		caData = caSecret.Data
 	default:
 		logger.Info("no CA bundle specified, skipping CA certificate configuration")
 		return nil, nil
 	}
+
+	if issuerSpec.CaBundleKey != "" {
+		logger.Info("using specified CA bundle key", "key", issuerSpec.CaBundleKey)
+		caBundleBytes, ok := caData[issuerSpec.CaBundleKey]
+		if !ok {
+			return nil, fmt.Errorf("%w, specified key: %s, reason: %v", errGetCaConfigKey, issuerSpec.CaBundleKey, "specified key not found")
+		}
+		return caBundleBytes, nil
+	}
+
+	logger.Info("CA bundle secret/configmap not configured with a specific key, defaulting to last key in map")
+
+	var caCertBytes []byte
+	// There is no requirement that the CA certificate is stored under a specific
+	// key in the secret / configmap, so we can just iterate over the map and effectively select
+	// the last value in the map
+	for _, b := range caData {
+		caCertBytes = b
+	}
+
+	return caCertBytes, nil
 }
 
 // fetchAuthOptions retrieves authentication options for the EJBCA client based on the provided secret name.

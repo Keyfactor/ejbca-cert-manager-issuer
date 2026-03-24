@@ -673,15 +673,25 @@ func TestFetchCACertBytes(t *testing.T) {
 			},
 			expectBytes: leafCertPem,
 		},
-		"configmap-missing-key": {
-			issuerSpec: ejbcaissuerv1alpha1.IssuerSpec{CaBundleConfigMapName: "ca-cm"},
+		"configmap-key-specified": {
+			issuerSpec: ejbcaissuerv1alpha1.IssuerSpec{CaBundleConfigMapName: "ca-cm", CaBundleKey: "test.crt"},
+			objects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-cm", Namespace: namespace},
+					Data:       map[string]string{"aaa.crt": "data", "test.crt": string(leafCertPem), "zzz.crt": "data"},
+				},
+			},
+			expectBytes: leafCertPem,
+		},
+		"configmap-key-specified-missing": {
+			issuerSpec: ejbcaissuerv1alpha1.IssuerSpec{CaBundleConfigMapName: "ca-cm", CaBundleKey: "test.crt"},
 			objects: []client.Object{
 				&corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{Name: "ca-cm", Namespace: namespace},
 					Data:       map[string]string{"wrong-key": "data"},
 				},
 			},
-			expectErrType: errGetCaConfigMapKey,
+			expectErrType: errGetCaConfigKey,
 		},
 		"configmap-not-found": {
 			issuerSpec:    ejbcaissuerv1alpha1.IssuerSpec{CaBundleConfigMapName: "ca-cm"},
@@ -696,6 +706,26 @@ func TestFetchCACertBytes(t *testing.T) {
 				},
 			},
 			expectBytes: leafCertPem,
+		},
+		"secret-key-specified": {
+			issuerSpec: ejbcaissuerv1alpha1.IssuerSpec{CaBundleSecretName: "ca-secret", CaBundleKey: "test.crt"},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-secret", Namespace: namespace},
+					Data:       map[string][]byte{"aaa.crt": []byte("data"), "test.crt": leafCertPem, "zzz.crt": []byte("data")},
+				},
+			},
+			expectBytes: leafCertPem,
+		},
+		"secret-key-specified-missing": {
+			issuerSpec: ejbcaissuerv1alpha1.IssuerSpec{CaBundleSecretName: "ca-secret", CaBundleKey: "test.crt"},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-secret", Namespace: namespace},
+					Data:       map[string][]byte{"aaa.crt": []byte("data")},
+				},
+			},
+			expectErrType: errGetCaConfigKey,
 		},
 		"secret-not-found": {
 			issuerSpec:    ejbcaissuerv1alpha1.IssuerSpec{CaBundleSecretName: "ca-secret"},
