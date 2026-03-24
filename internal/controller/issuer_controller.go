@@ -222,7 +222,8 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 
 	var caCertBytes []byte
 	useCACerts := false
-	if issuerSpec.CaBundleConfigMapName != "" {
+	switch {
+	case issuerSpec.CaBundleConfigMapName != "":
 		logger.Info("using CA bundle config map name", "configMapName", issuerSpec.CaBundleConfigMapName)
 		caBundleString, ok := caConfigMap.Data["ca-bundle.crt"]
 		if !ok {
@@ -230,7 +231,7 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 		}
 		caCertBytes = []byte(caBundleString)
 		useCACerts = true
-	} else if issuerSpec.CaBundleSecretName != "" {
+	case issuerSpec.CaBundleSecretName != "":
 		logger.Info("using CA bundle secret name", "secretName", issuerSpec.CaBundleSecretName)
 		// There is no requirement that the CA certificate is stored under a specific
 		// key in the secret, so we can just iterate over the map and effectively select
@@ -239,7 +240,7 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 			caCertBytes = bytes
 		}
 		useCACerts = true
-	} else {
+	default:
 		logger.Info("no CA bundle specified, skipping CA certificate configuration")
 	}
 
