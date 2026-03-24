@@ -1,31 +1,47 @@
-run:
-  # timeout for analysis, e.g. 30s, 5m, default is 1m
-  timeout: 12m
-
-issues:
-  exclude-dirs:
-    - testdata$
-    - test/mock
-  exclude-files:
-    - ".*\\.pb\\.go"
-
+version: "2"
 linters:
   enable:
     - bodyclose
     - durationcheck
     - errorlint
-    - goimports
-    - revive
+    - gocritic
     - gosec
     - misspell
     - nakedret
+    - nolintlint
+    - revive
     - unconvert
     - unparam
     - whitespace
-    - gocritic
-    - nolintlint
-
-linters-settings:
-  revive:
-    # minimal confidence for issues, default is 0.8
-    confidence: 0.0
+  settings:
+    revive:
+      confidence: 0
+      rules:
+        - name: var-naming
+          disabled: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - .*\.pb\.go
+      - testdata$
+      - test/mock
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - .*\.pb\.go
+      - testdata$
+      - test/mock
+      - third_party$
+      - builtin$
+      - examples$

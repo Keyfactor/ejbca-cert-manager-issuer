@@ -157,8 +157,8 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	}
 
 	var authOpt ejbca.Option
-	switch {
-	case authSecret.Type == corev1.SecretTypeTLS:
+	switch authSecret.Type {
+	case corev1.SecretTypeTLS:
 		cert, ok := authSecret.Data[corev1.TLSCertKey]
 		if !ok {
 			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found TLS secret with no certificate")
@@ -171,7 +171,7 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 			ClientCert: cert,
 			ClientKey:  key,
 		})
-	case authSecret.Type == corev1.SecretTypeOpaque:
+	case corev1.SecretTypeOpaque:
 		// We expect auth credentials for a client credential OAuth2.0 flow if the secret type is opaque
 		tokenURL, ok := authSecret.Data["tokenUrl"]
 		if !ok {

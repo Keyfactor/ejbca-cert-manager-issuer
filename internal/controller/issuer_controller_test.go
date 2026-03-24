@@ -155,6 +155,44 @@ func TestIssuerReconcile(t *testing.T) {
 			expectedReadyConditionStatus: ejbcaissuerv1alpha1.ConditionTrue,
 			expectedResult:               ctrl.Result{RequeueAfter: defaultHealthCheckInterval},
 		},
+		"success-issuer-opaque": {
+			kind: "Issuer",
+			name: types.NamespacedName{Namespace: "ns1", Name: "issuer1"},
+			objects: []client.Object{
+				&ejbcaissuerv1alpha1.Issuer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1",
+						Namespace: "ns1",
+					},
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
+						EjbcaSecretName: "issuer1-credentials",
+					},
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
+							{
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionUnknown,
+							},
+						},
+					},
+				},
+				&corev1.Secret{
+					Type: corev1.SecretTypeOpaque,
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1-credentials",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						"tokenUrl":     []byte("https://example.com/token"),
+						"clientId":     []byte("client-id"),
+						"clientSecret": []byte("client-secret"),
+					},
+				},
+			},
+			healthCheckerBuilder:         newFakeHealthCheckerBuilder(nil, nil),
+			expectedReadyConditionStatus: ejbcaissuerv1alpha1.ConditionTrue,
+			expectedResult:               ctrl.Result{RequeueAfter: defaultHealthCheckInterval},
+		},
 		"issuer-kind-Unrecognized": {
 			kind: "UnrecognizedType",
 			name: types.NamespacedName{Namespace: "ns1", Name: "issuer1"},
