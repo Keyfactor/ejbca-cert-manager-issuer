@@ -128,8 +128,8 @@ func TestIssuerReconcile(t *testing.T) {
 						Namespace: "ns1",
 					},
 					Spec: ejbcaissuerv1alpha1.IssuerSpec{
-						EjbcaSecretName:      "issuer1-credentials",
-						CaBundleSecretName:   "cabundle-secret",
+						EjbcaSecretName:    "issuer1-credentials",
+						CaBundleSecretName: "cabundle-secret",
 					},
 					Status: ejbcaissuerv1alpha1.IssuerStatus{
 						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{{
@@ -173,8 +173,8 @@ func TestIssuerReconcile(t *testing.T) {
 						Namespace: "ns1",
 					},
 					Spec: ejbcaissuerv1alpha1.IssuerSpec{
-						EjbcaSecretName:        "issuer1-credentials",
-						CaBundleConfigMapName:  "cabundle-configmap",
+						EjbcaSecretName:       "issuer1-credentials",
+						CaBundleConfigMapName: "cabundle-configmap",
 					},
 					Status: ejbcaissuerv1alpha1.IssuerStatus{
 						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{{
@@ -218,9 +218,9 @@ func TestIssuerReconcile(t *testing.T) {
 						Namespace: "ns1",
 					},
 					Spec: ejbcaissuerv1alpha1.IssuerSpec{
-						EjbcaSecretName:        "issuer1-credentials",
-						CaBundleSecretName:     "cabundle-secret",
-						CaBundleConfigMapName:  "cabundle-configmap",
+						EjbcaSecretName:       "issuer1-credentials",
+						CaBundleSecretName:    "cabundle-secret",
+						CaBundleConfigMapName: "cabundle-configmap",
 					},
 					Status: ejbcaissuerv1alpha1.IssuerStatus{
 						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{{
