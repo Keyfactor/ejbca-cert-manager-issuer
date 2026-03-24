@@ -138,69 +138,123 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	// Set the context on the config client
 	r.ConfigClient.SetContext(ctx)
 
-	// Retrieve the CA certificate secret
-	caSecretName := types.NamespacedName{
-		Name:      issuerSpec.CaBundleSecretName,
-		Namespace: secretName.Namespace,
+	caCertBytes, err := r.fetchCACertBytes(ctx, issuerSpec, secretName.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
-	var caSecret corev1.Secret
-	if issuerSpec.CaBundleSecretName != "" {
-		// If the CA secret name is not specified, we will not attempt to retrieve it
-		err = r.ConfigClient.GetSecret(caSecretName, &caSecret)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %w", errGetCaSecret, caSecretName, err)
+	authOpt, err := r.fetchAuthOptions(ctx, secretName)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	opts := []ejbca.Option{
+		ejbca.WithHostname(issuerSpec.Hostname),
+		*authOpt,
+		ejbca.WithEndEntityProfileName(issuerSpec.EndEntityProfileName),
+		ejbca.WithCertificateProfileName(issuerSpec.CertificateProfileName),
+		ejbca.WithCertificateAuthority(issuerSpec.CertificateAuthorityName),
+		ejbca.WithEndEntityName(issuerSpec.EndEntityName),
+	}
+
+	if caCertBytes != nil {
+		opts = append(opts, ejbca.WithCACerts(caCertBytes))
+	}
+
+	checker, err := r.HealthCheckerBuilder(ctx, opts...)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("%w: %w", errHealthCheckerBuilder, err)
+	}
+
+	if err := checker.Check(); err != nil {
+		return ctrl.Result{}, fmt.Errorf("%w: %w", errHealthCheckerCheck, err)
+	}
+
+	issuerutil.SetIssuerReadyCondition(ctx, name, r.Kind, issuerStatus, ejbcaissuerv1alpha1.ConditionTrue, issuerReadyConditionReason, "Success")
+	return ctrl.Result{RequeueAfter: defaultHealthCheckInterval}, nil
+}
+
+// fetchCACertBytes retrieves CA certificate bytes from either a ConfigMap or Secret
+// based on the issuer spec. Returns nil if no CA bundle is configured.
+// ConfigMap takes precedence over Secret when both are specified.
+func (r *IssuerReconciler) fetchCACertBytes(ctx context.Context, issuerSpec *ejbcaissuerv1alpha1.IssuerSpec, namespace string) ([]byte, error) {
+	logger := ctrl.LoggerFrom(ctx)
+
+	switch {
+	case issuerSpec.CaBundleConfigMapName != "":
+		logger.Info("using CA bundle config map name", "configMapName", issuerSpec.CaBundleConfigMapName)
+		caConfigMapName := types.NamespacedName{Name: issuerSpec.CaBundleConfigMapName, Namespace: namespace}
+		var caConfigMap corev1.ConfigMap
+		if err := r.ConfigClient.GetConfigMap(caConfigMapName, &caConfigMap); err != nil {
+			return nil, fmt.Errorf("%w, configMap name: %s, reason: %w", errGetCaConfigMap, caConfigMapName, err)
 		}
-	}
-
-	// Retrieve the CA certificate secret
-	caConfigMapName := types.NamespacedName{
-		Name:      issuerSpec.CaBundleConfigMapName,
-		Namespace: secretName.Namespace,
-	}
-
-	var caConfigMap corev1.ConfigMap
-	if issuerSpec.CaBundleConfigMapName != "" {
-		// If the CA secret name is not specified, we will not attempt to retrieve it
-		err = r.ConfigClient.GetConfigMap(caConfigMapName, &caConfigMap)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("%w, configMap name: %s, reason: %w", errGetCaConfigMap, caConfigMapName, err)
+		caBundleString, ok := caConfigMap.Data["ca-bundle.crt"]
+		if !ok {
+			return nil, fmt.Errorf("%w, configMap name: %s, reason: %v", errGetCaConfigMapKey, caConfigMapName, "ca-bundle.crt key not found")
 		}
+		return []byte(caBundleString), nil
+	case issuerSpec.CaBundleSecretName != "":
+		logger.Info("using CA bundle secret name", "secretName", issuerSpec.CaBundleSecretName)
+		caSecretName := types.NamespacedName{Name: issuerSpec.CaBundleSecretName, Namespace: namespace}
+		var caSecret corev1.Secret
+		if err := r.ConfigClient.GetSecret(caSecretName, &caSecret); err != nil {
+			return nil, fmt.Errorf("%w, secret name: %s, reason: %w", errGetCaSecret, caSecretName, err)
+		}
+		// There is no requirement that the CA certificate is stored under a specific
+		// key in the secret, so we can just iterate over the map and effectively select
+		// the last value in the map
+		for _, b := range caSecret.Data {
+			return b, nil
+		}
+		return nil, nil
+	default:
+		logger.Info("no CA bundle specified, skipping CA certificate configuration")
+		return nil, nil
 	}
+}
+
+// fetchAuthOptions retrieves authentication options for the EJBCA client based on the provided secret name.
+// It supports both TLS client certificate authentication (when the secret type is kubernetes.io/tls) and
+// OAuth2.0 client credentials authentication (when the secret type is kubernetes.io/opaque). The secret must be of the
+// appropriate type and contain the necessary keys for the selected authentication method.
+func (r *IssuerReconciler) fetchAuthOptions(ctx context.Context, secretName types.NamespacedName) (*ejbca.Option, error) {
+	logger := ctrl.LoggerFrom(ctx)
 
 	var authSecret corev1.Secret
 	if err := r.ConfigClient.GetSecret(secretName, &authSecret); err != nil {
-		return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %w", errGetAuthSecret, secretName, err)
+		return nil, fmt.Errorf("%w, secret name: %s, reason: %w", errGetAuthSecret, secretName, err)
 	}
 
 	var authOpt ejbca.Option
 	switch authSecret.Type {
 	case corev1.SecretTypeTLS:
+		logger.Info("found TLS secret for authentication, using client certificate authentication")
 		cert, ok := authSecret.Data[corev1.TLSCertKey]
 		if !ok {
-			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found TLS secret with no certificate")
+			return nil, fmt.Errorf("%w: %v", errGetAuthSecret, "found TLS secret with no certificate")
 		}
 		key, ok := authSecret.Data[corev1.TLSPrivateKeyKey]
 		if !ok {
-			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found TLS secret with no private key")
+			return nil, fmt.Errorf("%w: %v", errGetAuthSecret, "found TLS secret with no private key")
 		}
 		authOpt = ejbca.WithClientCert(&ejbca.CertAuth{
 			ClientCert: cert,
 			ClientKey:  key,
 		})
 	case corev1.SecretTypeOpaque:
+		logger.Info("found opaque secret for authentication, using OAuth2.0 client credentials authentication")
 		// We expect auth credentials for a client credential OAuth2.0 flow if the secret type is opaque
 		tokenURL, ok := authSecret.Data["tokenUrl"]
 		if !ok {
-			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with no tokenUrl")
+			return nil, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with no tokenUrl")
 		}
 		clientID, ok := authSecret.Data["clientId"]
 		if !ok {
-			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with no clientId")
+			return nil, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with no clientId")
 		}
 		clientSecret, ok := authSecret.Data["clientSecret"]
 		if !ok {
-			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with no clientSecret")
+			return nil, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with no clientSecret")
 		}
 		oauth := &ejbca.OAuth{
 			TokenURL:     string(tokenURL),
@@ -217,57 +271,9 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 		}
 		authOpt = ejbca.WithOAuth(oauth)
 	default:
-		return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with unsupported type")
+		return nil, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with unsupported type")
 	}
-
-	var caCertBytes []byte
-	useCACerts := false
-	switch {
-	case issuerSpec.CaBundleConfigMapName != "":
-		logger.Info("using CA bundle config map name", "configMapName", issuerSpec.CaBundleConfigMapName)
-		caBundleString, ok := caConfigMap.Data["ca-bundle.crt"]
-		if !ok {
-			return ctrl.Result{}, fmt.Errorf("%w, configMap name: %s, reason: %v", errGetCaConfigMapKey, caConfigMapName, "ca-bundle.crt key not found")
-		}
-		caCertBytes = []byte(caBundleString)
-		useCACerts = true
-	case issuerSpec.CaBundleSecretName != "":
-		logger.Info("using CA bundle secret name", "secretName", issuerSpec.CaBundleSecretName)
-		// There is no requirement that the CA certificate is stored under a specific
-		// key in the secret, so we can just iterate over the map and effectively select
-		// the last value in the map
-		for _, bytes := range caSecret.Data {
-			caCertBytes = bytes
-		}
-		useCACerts = true
-	default:
-		logger.Info("no CA bundle specified, skipping CA certificate configuration")
-	}
-
-	opts := []ejbca.Option{
-		ejbca.WithHostname(issuerSpec.Hostname),
-		authOpt,
-		ejbca.WithEndEntityProfileName(issuerSpec.EndEntityProfileName),
-		ejbca.WithCertificateProfileName(issuerSpec.CertificateProfileName),
-		ejbca.WithCertificateAuthority(issuerSpec.CertificateAuthorityName),
-		ejbca.WithEndEntityName(issuerSpec.EndEntityName),
-	}
-
-	if useCACerts {
-		opts = append(opts, ejbca.WithCACerts(caCertBytes))
-	}
-
-	checker, err := r.HealthCheckerBuilder(ctx, opts...)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("%w: %w", errHealthCheckerBuilder, err)
-	}
-
-	if err := checker.Check(); err != nil {
-		return ctrl.Result{}, fmt.Errorf("%w: %w", errHealthCheckerCheck, err)
-	}
-
-	issuerutil.SetIssuerReadyCondition(ctx, name, r.Kind, issuerStatus, ejbcaissuerv1alpha1.ConditionTrue, issuerReadyConditionReason, "Success")
-	return ctrl.Result{RequeueAfter: defaultHealthCheckInterval}, nil
+	return &authOpt, nil
 }
 
 // SetupWithManager registers the IssuerReconciler with the controller manager.
