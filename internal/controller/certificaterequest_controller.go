@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	ejbcaissuerv1alpha1 "github.com/Keyfactor/ejbca-cert-manager-issuer/api/v1alpha1"
 	"github.com/Keyfactor/ejbca-cert-manager-issuer/internal/ejbca"
@@ -281,6 +282,17 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		caCertBytes = bytes
 	}
 
+	// Compute notAfter from spec.duration if present.
+	// spec.duration is a requested certificate lifetime (e.g. "1128h0m0s").
+	// We add it to the current time to get an absolute notAfter timestamp.
+	// If spec.duration is nil, notAfter is nil and the Certificate Profile
+	// default validity is used instead — existing behaviour is unchanged.
+	var notAfter *time.Time
+	if certificateRequest.Spec.Duration != nil {
+		t := time.Now().Add(certificateRequest.Spec.Duration.Duration).UTC()
+		notAfter = &t
+	}
+
 	signer, err := r.SignerBuilder(ctx,
 		ejbca.WithHostname(issuerSpec.Hostname),
 		ejbca.WithCACerts(caCertBytes),
@@ -290,6 +302,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		ejbca.WithCertificateAuthority(issuerSpec.CertificateAuthorityName),
 		ejbca.WithEndEntityName(issuerSpec.EndEntityName),
 		ejbca.WithAnnotations(certificateRequest.GetAnnotations()),
+		ejbca.WithNotAfter(notAfter),
 	)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("%w: %w", errSignerBuilder, err)
