@@ -16,10 +16,21 @@ This is currently configured as a Bash script, so it is necessary to run this on
 - An available EJBCA is running and configured as described in the [root README](../../README.md#configuring-ejbca)
     - OAuth is used to communicate with EJBCA
 - Docker (>= 28.2.2)
-- Minikube (>= v1.35.0)
 - kubectl (>= v1.32.2)
 - helm (>= v3.17.1)
 - cmctl (>= v2.1.1)
+- Minikube (>= v1.35.0) - only required if using `USE_MINIKUBE=true`
+
+**Kubernetes cluster:**
+- By default, tests run against your current kubeconfig context
+- Set `USE_MINIKUBE=true` to use minikube instead
+
+**EJBCA instance:**
+- An available EJBCA instance is configured as described in the [root README](../../README.md#configuring-ejbca)
+- OAuth credentials for API access
+- A CA configured in EJBCA, and the CA's logical name set in the `EJBCA_CA_NAME` environment variable
+- An end-entity profile configured to allow API-based enrollment, and the name of this profile set in the `END_ENTITY_PROFILE_NAME` environment variable
+- A certificate profile configured to allow API-based enrollment, and the name of this profile set in the `CERTIFICATE_PROFILE_NAME` environment variable
 
 ## Configuring the environment variables
 ejbca-cert-manager-issuer interacts with an external EJBCA instance. An environment variable file `.env` can be used to store the environment variables to be used to talk to the EJBCA instance.
@@ -31,13 +42,35 @@ A `.env.example` file is available as a template for your environment variables.
 cp .env.example .env
 ```
 
-Modify the fields as needed.
+### Required variables
+
+| Variable | Description |
+|----------|-------------|
+| `HOSTNAME` | Command instance hostname |
+| `OAUTH_TOKEN_URL` | OAuth token endpoint URL |
+| `OAUTH_CLIENT_ID` | OAuth client ID |
+| `OAUTH_CLIENT_SECRET` | OAuth client secret |
+| `EJBCA_CA_NAME` | CA logical name in EJBCA |
+| `CERTIFICATE_PROFILE_NAME` | Certificate profile name in EJBCA |
+| `END_ENTITY_PROFILE_NAME` | End-entity profile name in EJBCA |
+
+### Optional variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `USE_MINIKUBE` | Set to `true` to use minikube instead of the current kubeconfig context | `false` |
+| `OAUTH_SCOPES` | OAuth scopes (optional, remove if not needed) | |
+| `OAUTH_AUDIENCE` | OAuth audience (optional, remove if not needed) | |
+| `IMAGE_TAG` | Docker image tag to test | `local` |
+| `HELM_CHART_VERSION` | Helm chart version to test | `local` |
+| `IMAGE_REGISTRY` | Optional registry to push the image to if `IMAGE_TAG` != `local` | |
+
 
 ## Running the script
 
 ```bash
 # enable the script to be executed
-chmod +x ./run_test.sh
+chmod +x ./run_tests.sh
 
 # load the environment variables
 source .env

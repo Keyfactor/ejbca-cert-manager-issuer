@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ## =======================   LICENSE     ===================================
-# Copyright © 2025 Keyfactor
+# Copyright © 2026 Keyfactor
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,15 +35,17 @@
 # > ./run_tests.sh
 ## ===========================================================================
 
-IMAGE_REPO="keyfactor"
-IMAGE_NAME="ejbca-cert-manager-issuer"
-# IMAGE_TAG="2.1.0"
-IMAGE_TAG="local" # Uncomment if you want to build the image locally
+# Image configuration - can be overridden via environment variables
+# Set IMAGE_TAG=local to build locally, or use a published version (default: local)
+IMAGE_REPO="${IMAGE_REPO:-keyfactor}"
+IMAGE_NAME="${IMAGE_NAME:-ejbca-cert-manager-issuer}"
+IMAGE_TAG="${IMAGE_TAG:-local}"
 FULL_IMAGE_NAME="${IMAGE_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
 
+# Helm chart configuration - can be overridden via environment variables
+# Set HELM_CHART_VERSION=local to use the local chart, or use a published version (default: local)
 HELM_CHART_NAME="ejbca-cert-manager-issuer"
-# HELM_CHART_VERSION="2.1.0" # Uncomment if you want to use a specific version from the Helm repository
-HELM_CHART_VERSION="local" # Uncomment if you want to use the local Helm chart
+HELM_CHART_VERSION="${HELM_CHART_VERSION:-local}"
 
 IS_LOCAL_DEPLOYMENT=$([ "$IMAGE_TAG" = "local" ] && echo "true" || echo "false")
 IS_LOCAL_HELM=$([ "$HELM_CHART_VERSION" = "local" ] && echo "true" || echo "false")
@@ -182,6 +184,7 @@ install_cert_manager_issuer() {
     
     if [[ "$IS_LOCAL_HELM" == "true" ]]; then
         CHART_PATH=$CHART_PATH
+        echo "Using local Helm chart at $CHART_PATH..."
 
         # Checking if chart path exists
         if [ ! -d "$CHART_PATH" ]; then
@@ -191,6 +194,7 @@ install_cert_manager_issuer() {
 
         VERSION_PARAM=""
     else
+        echo "Using Helm chart from repository for version ${HELM_CHART_VERSION}..."
 
         # Add ejbca-issuer repository if not already added
         if ! helm repo list | grep -q ejbca-issuer; then
@@ -216,6 +220,12 @@ install_cert_manager_issuer() {
     else
         PULL_POLICY_PARAM=""
     fi
+
+    echo "Using the following parameters for Helm installation:"
+    echo "  HELM_CHART_VERSION: ${HELM_CHART_VERSION}"
+    echo "  IMAGE_TAG: ${IMAGE_TAG}"
+    echo "  IMAGE_REPO_PARAM: ${IMAGE_REPO_PARAM}"
+    echo "  PULL_POLICY_PARAM: ${PULL_POLICY_PARAM}"
     
     # Helm chart could be out of date for release candidates, so we will install from
     # the chart defined in the repository.
@@ -550,6 +560,8 @@ wait_for_certificate_request() {
 approve_certificate_request() {
     echo "🔍 Approving certificate request..."
 
+    sleep 1
+
     if cr_exists $CERTIFICATEREQUEST_CRD_FQTN "$ISSUER_NAMESPACE" "$CR_CR_NAME"; then
         cmctl -n $ISSUER_NAMESPACE approve $CR_CR_NAME
         echo "Certificate request approved successfully."
@@ -632,18 +644,19 @@ cd ../..
 echo "⚙️ Local image deployment: ${IS_LOCAL_DEPLOYMENT}"
 echo "⚙️ Local Helm chart: ${IS_LOCAL_HELM}"
 
-if ! minikube status &> /dev/null; then
-    echo "Error: Minikube is not running. Please start it with 'minikube start'"
-    exit 1
+# Use existing kubeconfig context (set USE_MINIKUBE=true to use minikube)
+if [ "${USE_MINIKUBE:-false}" = "true" ]; then
+    if ! minikube status &> /dev/null; then
+        echo "Error: Minikube is not running. Please start it with 'minikube start'"
+        exit 1
+    fi
+    kubectl config use-context minikube
+    echo "📡 Connecting to Minikube Docker environment..."
+    eval $(minikube docker-env)
+else
+    echo "📡 Using current kubeconfig context..."
 fi
-
-kubectl config use-context minikube
-echo "Connected to Kubernetes context: $(kubectl config current-context)."
-
-# 1. Connect to minikube Docker env
-echo "📡 Connecting to Minikube Docker environment..."
-eval $(minikube docker-env)
-echo "🚀 Starting deployment to Minikube..."
+echo "Connected to Kubernetes context: $(kubectl config current-context)..."
 
 # 2. Deploy cert-manager Helm chart if not exists
 echo "🔐 Checking for cert-manager installation..."
@@ -662,9 +675,23 @@ kubectl create namespace ${MANAGER_NAMESPACE} --dry-run=client -o yaml | kubectl
 # 4. Build the ejbca-cert-manager-issuer Docker image
 # This step is only needed if the image tag is "local"
 if [ "$IS_LOCAL_DEPLOYMENT" = "true" ]; then
+    if [ "${USE_MINIKUBE:-false}" != "true" ]; then
+        echo "⚠️  WARNING: Local deployment without minikube requires pushing the image to a registry."
+        echo "⚠️  Set IMAGE_REGISTRY env var to push, or use a published IMAGE_TAG instead."
+    fi
     echo "🐳 Building ${FULL_IMAGE_NAME} Docker image..."
     docker build -t ${FULL_IMAGE_NAME} .
     echo "✅ Docker image built successfully"
+
+    # If IMAGE_REGISTRY is set, push the image
+    if [ -n "${IMAGE_REGISTRY:-}" ]; then
+        REMOTE_IMAGE="${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+        echo "📤 Tagging and pushing image to ${REMOTE_IMAGE}..."
+        docker tag ${FULL_IMAGE_NAME} ${REMOTE_IMAGE}
+        docker push ${REMOTE_IMAGE}
+        FULL_IMAGE_NAME="${REMOTE_IMAGE}"
+        echo "✅ Image pushed successfully"
+    fi
 
     echo "📦 Listing Docker images..."
     docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.CreatedAt}}\t{{.Size}}" | head -5
@@ -720,14 +747,14 @@ check_for_certificate_secret
 echo "🧪✅ Test 1 completed successfully."
 echo ""
 
-echo "🧪💬 Test 2: A generated certificate request should be successfully issued by ClusterIssuer."
+echo "🧪💬 Test 1a: A generated certificate request should be successfully issued by ClusterIssuer."
 regenerate_cluster_issuer
 regenerate_certificate ClusterIssuer
 wait_for_certificate_request
 approve_certificate_request
 check_certificate_request_status
 check_for_certificate_secret
-echo "🧪✅ Test 2 completed successfully."
+echo "🧪✅ Test 1a completed successfully."
 echo ""
 
 
