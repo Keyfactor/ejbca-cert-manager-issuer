@@ -32,6 +32,13 @@ jobs:
         with:
           version: v2.4.0
 
+      - name: Regenerate CRDs
+        run: make generate manifests
+      - name: Check for CRD drift
+        run: |
+          git diff --compact-summary --exit-code || \
+            (echo; echo "Unexpected difference in directories after code generation. Run 'make generate manifests' and commit."; exit 1)
+
   test:
     name: Go Test
     needs: build
