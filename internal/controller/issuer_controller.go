@@ -43,7 +43,6 @@ var (
 	errGetCaSecret          = errors.New("caBundleSecretName specified a name, but failed to get Secret containing CA certificate")
 	errGetCaConfigMap       = errors.New("caBundleConfigMapName specified a name, but failed to get ConfigMap containing CA certificate")
 	errGetCaConfigMapKey    = errors.New("caBundleConfigMapName specified a name, but failed to get key 'ca-bundle.crt' containing CA certificate")
-	errGetCaBundleBoth      = errors.New("caBundleConfigMapName and caBundleSecretName are both specified ignoring caBundleSecretName")
 	errHealthCheckerBuilder = errors.New("failed to build the healthchecker")
 	errHealthCheckerCheck   = errors.New("healthcheck failed")
 )
@@ -223,45 +222,41 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 
 	var caCertBytes []byte
 	useCACerts := false
-	// There is no requirement that the CA certificate is stored under a specific
-	// key in the secret, so we can just iterate over the map and effectively select
-	// the last value in the map
 	if issuerSpec.CaBundleConfigMapName != "" {
-		logger.Info(errGetCaBundleBoth.Error())
+		logger.Info("using CA bundle config map name", "configMapName", issuerSpec.CaBundleConfigMapName)
 		caBundleString, ok := caConfigMap.Data["ca-bundle.crt"]
 		if !ok {
 			return ctrl.Result{}, fmt.Errorf("%w, configMap name: %s, reason: %v", errGetCaConfigMapKey, caConfigMapName, "ca-bundle.crt key not found")
 		}
 		caCertBytes = []byte(caBundleString)
 		useCACerts = true
-	} else if issuerSpec.CaBundleConfigMapName == "" && issuerSpec.CaBundleSecretName != "" {
+	} else if issuerSpec.CaBundleSecretName != "" {
+		logger.Info("using CA bundle secret name", "secretName", issuerSpec.CaBundleSecretName)
+		// There is no requirement that the CA certificate is stored under a specific
+		// key in the secret, so we can just iterate over the map and effectively select
+		// the last value in the map
 		for _, bytes := range caSecret.Data {
 			caCertBytes = bytes
 		}
 		useCACerts = true
+	} else {
+		logger.Info("no CA bundle specified, skipping CA certificate configuration")
 	}
 
-	var checker ejbca.HealthChecker
-	if useCACerts {
-		checker, err = r.HealthCheckerBuilder(ctx,
-			ejbca.WithHostname(issuerSpec.Hostname),
-			ejbca.WithCACerts(caCertBytes),
-			authOpt,
-			ejbca.WithEndEntityProfileName(issuerSpec.EndEntityProfileName),
-			ejbca.WithCertificateProfileName(issuerSpec.CertificateProfileName),
-			ejbca.WithCertificateAuthority(issuerSpec.CertificateAuthorityName),
-			ejbca.WithEndEntityName(issuerSpec.EndEntityName),
-		)
-	} else {
-		checker, err = r.HealthCheckerBuilder(ctx,
-			ejbca.WithHostname(issuerSpec.Hostname),
-			authOpt,
-			ejbca.WithEndEntityProfileName(issuerSpec.EndEntityProfileName),
-			ejbca.WithCertificateProfileName(issuerSpec.CertificateProfileName),
-			ejbca.WithCertificateAuthority(issuerSpec.CertificateAuthorityName),
-			ejbca.WithEndEntityName(issuerSpec.EndEntityName),
-		)
+	opts := []ejbca.Option{
+		ejbca.WithHostname(issuerSpec.Hostname),
+		authOpt,
+		ejbca.WithEndEntityProfileName(issuerSpec.EndEntityProfileName),
+		ejbca.WithCertificateProfileName(issuerSpec.CertificateProfileName),
+		ejbca.WithCertificateAuthority(issuerSpec.CertificateAuthorityName),
+		ejbca.WithEndEntityName(issuerSpec.EndEntityName),
 	}
+
+	if useCACerts {
+		opts = append(opts, ejbca.WithCACerts(caCertBytes))
+	}
+
+	checker, err := r.HealthCheckerBuilder(ctx, opts...)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("%w: %w", errHealthCheckerBuilder, err)
 	}
