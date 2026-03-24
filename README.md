@@ -158,10 +158,15 @@ kubectl -n ejbca-issuer-system create secret generic ejbca-secret \
 
 ## CA Bundle
 
-If the EJBCA API is configured to use a self-signed certificate or with a certificate that isn't publically trusted, the CA certificate must be provided as a Kubernetes secret.
+If the EJBCA API is configured to use a self-signed certificate or with a certificate that isn't publically trusted, the CA certificate must be provided as a Kubernetes secret or as a configmap.
 
 ```shell
 kubectl -n ejbca-issuer-system create secret generic ejbca-ca-secret --from-file=ca.crt
+```
+
+Alternatively, the CA certificate can be provided as a Kubernetes config map.
+```shell
+kubectl -n ejbca-issuer-system create configmap ejbca-ca-configmap --from-file=ca.crt
 ```
 
 ## Creating Issuer and ClusterIssuer resources
@@ -187,7 +192,8 @@ For example, ClusterIssuer resources can be used to issue certificates for resou
     | certificateAuthorityName | The name of the EJBCA certificate authority to use. For example, `ManagementCA`                                                              |
     | certificateProfileName   | The name of the EJBCA certificate profile to use. For example, `ENDUSER`                                                                     |
     | endEntityProfileName     | The name of the EJBCA end entity profile to use. For example, `istio`                                                                        |
-    | caBundleSecretName       | The name of the Kubernetes secret containing the CA certificate. Optional, required if using a self-signed or untrusted root certificate      |
+    | caBundleSecretName       | The name of the Kubernetes secret containing the CA certificate. Optional, If using a self-signed or untrusted root certificate, this field or caBundleConfigMapName must be specified.     |
+    | caBundleConfigMapName    | The name of the Kubernetes config map containing the CA certificate. Optional, If using a self-signed or untrusted root certificate, this field or caBundleConfigMapName must be specified. The caBundleConfigMapName field takes precedence over caBundleSecretName if both are specified. |
     | endEntityName            | The name of the end entity to use. Optional. Refer to the EJBCA End Entity Name Configuration section for more details on how this field is used |
 
     > If a different combination of hostname/certificate authority/certificate profile/end entity profile is required, a new Issuer or ClusterIssuer resource must be created. Each resource instantiation represents a single configuration.

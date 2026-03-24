@@ -118,6 +118,151 @@ func TestIssuerReconcile(t *testing.T) {
 			expectedReadyConditionStatus: ejbcaissuerv1alpha1.ConditionTrue,
 			expectedResult:               ctrl.Result{RequeueAfter: defaultHealthCheckInterval},
 		},
+		"issuer-cabundle-secret": {
+			kind: "Issuer",
+			name: types.NamespacedName{Namespace: "ns1", Name: "issuer-secret"},
+			objects: []client.Object{
+				&ejbcaissuerv1alpha1.Issuer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer-secret",
+						Namespace: "ns1",
+					},
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
+						EjbcaSecretName:      "issuer1-credentials",
+						CaBundleSecretName:   "cabundle-secret",
+					},
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{{
+							Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+							Status: ejbcaissuerv1alpha1.ConditionUnknown,
+						}},
+					},
+				},
+				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1-credentials",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cabundle-secret",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						"ca.crt": authCertPem,
+					},
+				},
+			},
+			healthCheckerBuilder:         newFakeHealthCheckerBuilder(nil, nil),
+			expectedReadyConditionStatus: ejbcaissuerv1alpha1.ConditionTrue,
+			expectedResult:               ctrl.Result{RequeueAfter: defaultHealthCheckInterval},
+		},
+		"issuer-cabundle-configmap": {
+			kind: "Issuer",
+			name: types.NamespacedName{Namespace: "ns1", Name: "issuer-configmap"},
+			objects: []client.Object{
+				&ejbcaissuerv1alpha1.Issuer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer-configmap",
+						Namespace: "ns1",
+					},
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
+						EjbcaSecretName:        "issuer1-credentials",
+						CaBundleConfigMapName:  "cabundle-configmap",
+					},
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{{
+							Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+							Status: ejbcaissuerv1alpha1.ConditionUnknown,
+						}},
+					},
+				},
+				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1-credentials",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cabundle-configmap",
+						Namespace: "ns1",
+					},
+					Data: map[string]string{
+						"ca-bundle.crt": string(authCertPem),
+					},
+				},
+			},
+			healthCheckerBuilder:         newFakeHealthCheckerBuilder(nil, nil),
+			expectedReadyConditionStatus: ejbcaissuerv1alpha1.ConditionTrue,
+			expectedResult:               ctrl.Result{RequeueAfter: defaultHealthCheckInterval},
+		},
+		"issuer-cabundle-both": {
+			kind: "Issuer",
+			name: types.NamespacedName{Namespace: "ns1", Name: "issuer-both"},
+			objects: []client.Object{
+				&ejbcaissuerv1alpha1.Issuer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer-both",
+						Namespace: "ns1",
+					},
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
+						EjbcaSecretName:        "issuer1-credentials",
+						CaBundleSecretName:     "cabundle-secret",
+						CaBundleConfigMapName:  "cabundle-configmap",
+					},
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{{
+							Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+							Status: ejbcaissuerv1alpha1.ConditionUnknown,
+						}},
+					},
+				},
+				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1-credentials",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cabundle-secret",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						"ca.crt": authCertPem,
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cabundle-configmap",
+						Namespace: "ns1",
+					},
+					Data: map[string]string{
+						"ca-bundle.crt": string(authCertPem),
+					},
+				},
+			},
+			healthCheckerBuilder:         newFakeHealthCheckerBuilder(nil, nil),
+			expectedReadyConditionStatus: ejbcaissuerv1alpha1.ConditionTrue,
+			expectedResult:               ctrl.Result{RequeueAfter: defaultHealthCheckInterval},
+		},
 		"success-clusterissuer": {
 			kind: "ClusterIssuer",
 			name: types.NamespacedName{Name: "clusterissuer1"},
