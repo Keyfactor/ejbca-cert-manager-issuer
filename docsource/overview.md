@@ -39,7 +39,7 @@ EJBCA Issuer enrolls certificates by creating or updating an [End Entity](https:
 
     You should make careful note of the allowed Key Types and Key Sizes on the Certificate Profile. When creating cert-manager [Certificates](https://cert-manager.io/docs/usage/certificate/), you must make sure that the key `algorithm` and `size` are allowed by your Certificate Profile in EJBCA.
 
-    > As of EJBCA 9.3.3, if the certificate profile has "Allow Validity Override" enabled, ejbca-cert-manager-issuer will attempt to set the expiration of the issued certificate to match the `duration` field of the cert-manager Certificate resource. If "Allow Validity Override" is not enabled, the issued certificate will have the default validity period defined in EJBCA, regardless of the `duration` field in cert-manager.
+    > As of EJBCA 9.3.3, if the certificate profile has "Allow Validity Override" enabled, ejbca-cert-manager-issuer will attempt to set the expiration of the issued certificate to match the `duration` field of the cert-manager Certificate resource. If "Allow Validity Override" is not enabled, the issued certificate will have the default validity period defined in EJBCA, regardless of the `duration` field in cert-manager. ([Docs](https://docs.keyfactor.com/ejbca/latest/certificate-profile-fields#id-(9.5)CertificateProfileFields-Validityvalidity))
 
 2. **Create or identify an End Entity Profile**
 
