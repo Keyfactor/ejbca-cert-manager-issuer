@@ -118,6 +118,151 @@ func TestIssuerReconcile(t *testing.T) {
 			expectedReadyConditionStatus: ejbcaissuerv1alpha1.ConditionTrue,
 			expectedResult:               ctrl.Result{RequeueAfter: defaultHealthCheckInterval},
 		},
+		"issuer-cabundle-secret": {
+			kind: "Issuer",
+			name: types.NamespacedName{Namespace: "ns1", Name: "issuer-secret"},
+			objects: []client.Object{
+				&ejbcaissuerv1alpha1.Issuer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer-secret",
+						Namespace: "ns1",
+					},
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
+						EjbcaSecretName:    "issuer1-credentials",
+						CaBundleSecretName: "cabundle-secret",
+					},
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{{
+							Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+							Status: ejbcaissuerv1alpha1.ConditionUnknown,
+						}},
+					},
+				},
+				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1-credentials",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cabundle-secret",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						"ca.crt": authCertPem,
+					},
+				},
+			},
+			healthCheckerBuilder:         newFakeHealthCheckerBuilder(nil, nil),
+			expectedReadyConditionStatus: ejbcaissuerv1alpha1.ConditionTrue,
+			expectedResult:               ctrl.Result{RequeueAfter: defaultHealthCheckInterval},
+		},
+		"issuer-cabundle-configmap": {
+			kind: "Issuer",
+			name: types.NamespacedName{Namespace: "ns1", Name: "issuer-configmap"},
+			objects: []client.Object{
+				&ejbcaissuerv1alpha1.Issuer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer-configmap",
+						Namespace: "ns1",
+					},
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
+						EjbcaSecretName:       "issuer1-credentials",
+						CaBundleConfigMapName: "cabundle-configmap",
+					},
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{{
+							Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+							Status: ejbcaissuerv1alpha1.ConditionUnknown,
+						}},
+					},
+				},
+				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1-credentials",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cabundle-configmap",
+						Namespace: "ns1",
+					},
+					Data: map[string]string{
+						"ca-bundle.crt": string(authCertPem),
+					},
+				},
+			},
+			healthCheckerBuilder:         newFakeHealthCheckerBuilder(nil, nil),
+			expectedReadyConditionStatus: ejbcaissuerv1alpha1.ConditionTrue,
+			expectedResult:               ctrl.Result{RequeueAfter: defaultHealthCheckInterval},
+		},
+		"issuer-cabundle-both": {
+			kind: "Issuer",
+			name: types.NamespacedName{Namespace: "ns1", Name: "issuer-both"},
+			objects: []client.Object{
+				&ejbcaissuerv1alpha1.Issuer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer-both",
+						Namespace: "ns1",
+					},
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
+						EjbcaSecretName:       "issuer1-credentials",
+						CaBundleSecretName:    "cabundle-secret",
+						CaBundleConfigMapName: "cabundle-configmap",
+					},
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{{
+							Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+							Status: ejbcaissuerv1alpha1.ConditionUnknown,
+						}},
+					},
+				},
+				&corev1.Secret{
+					Type: corev1.SecretTypeTLS,
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1-credentials",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       authCertPem,
+						corev1.TLSPrivateKeyKey: authKeyPem,
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cabundle-secret",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						"ca.crt": authCertPem,
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cabundle-configmap",
+						Namespace: "ns1",
+					},
+					Data: map[string]string{
+						"ca-bundle.crt": string(authCertPem),
+					},
+				},
+			},
+			healthCheckerBuilder:         newFakeHealthCheckerBuilder(nil, nil),
+			expectedReadyConditionStatus: ejbcaissuerv1alpha1.ConditionTrue,
+			expectedResult:               ctrl.Result{RequeueAfter: defaultHealthCheckInterval},
+		},
 		"success-clusterissuer": {
 			kind: "ClusterIssuer",
 			name: types.NamespacedName{Name: "clusterissuer1"},
@@ -152,6 +297,44 @@ func TestIssuerReconcile(t *testing.T) {
 			},
 			healthCheckerBuilder:         newFakeHealthCheckerBuilder(nil, nil),
 			clusterResourceNamespace:     "kube-system",
+			expectedReadyConditionStatus: ejbcaissuerv1alpha1.ConditionTrue,
+			expectedResult:               ctrl.Result{RequeueAfter: defaultHealthCheckInterval},
+		},
+		"success-issuer-opaque": {
+			kind: "Issuer",
+			name: types.NamespacedName{Namespace: "ns1", Name: "issuer1"},
+			objects: []client.Object{
+				&ejbcaissuerv1alpha1.Issuer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1",
+						Namespace: "ns1",
+					},
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
+						EjbcaSecretName: "issuer1-credentials",
+					},
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
+							{
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionUnknown,
+							},
+						},
+					},
+				},
+				&corev1.Secret{
+					Type: corev1.SecretTypeOpaque,
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1-credentials",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						"tokenUrl":     []byte("https://example.com/token"),
+						"clientId":     []byte("client-id"),
+						"clientSecret": []byte("client-secret"),
+					},
+				},
+			},
+			healthCheckerBuilder:         newFakeHealthCheckerBuilder(nil, nil),
 			expectedReadyConditionStatus: ejbcaissuerv1alpha1.ConditionTrue,
 			expectedResult:               ctrl.Result{RequeueAfter: defaultHealthCheckInterval},
 		},
@@ -314,6 +497,281 @@ func TestIssuerReconcile(t *testing.T) {
 				_, issuerStatus, err := issuerutil.GetSpecAndStatus(issuer)
 				require.NoError(t, err)
 				assertIssuerHasReadyCondition(t, tc.expectedReadyConditionStatus, issuerStatus)
+			}
+		})
+	}
+}
+
+func TestFetchAuthOptions(t *testing.T) {
+	caCert, rootKey := issueTestCertificate(t, "Root-CA", nil, nil)
+	authCert, authKey := issueTestCertificate(t, "Auth", caCert, rootKey)
+	keyBytes, err := x509.MarshalECPrivateKey(authKey)
+	require.NoError(t, err)
+	authCertPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: authCert.Raw})
+	authKeyPem := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes})
+
+	const namespace = "ns1"
+	secretName := types.NamespacedName{Name: "auth-secret", Namespace: namespace}
+
+	tests := map[string]struct {
+		secret        *corev1.Secret
+		expectNilOpt  bool
+		expectErrType error
+	}{
+		"tls-success": {
+			secret: &corev1.Secret{
+				Type:       corev1.SecretTypeTLS,
+				ObjectMeta: metav1.ObjectMeta{Name: secretName.Name, Namespace: namespace},
+				Data: map[string][]byte{
+					corev1.TLSCertKey:       authCertPem,
+					corev1.TLSPrivateKeyKey: authKeyPem,
+				},
+			},
+		},
+		"tls-missing-cert": {
+			secret: &corev1.Secret{
+				Type:       corev1.SecretTypeTLS,
+				ObjectMeta: metav1.ObjectMeta{Name: secretName.Name, Namespace: namespace},
+				Data:       map[string][]byte{corev1.TLSPrivateKeyKey: authKeyPem},
+			},
+			expectErrType: errGetAuthSecret,
+		},
+		"tls-missing-key": {
+			secret: &corev1.Secret{
+				Type:       corev1.SecretTypeTLS,
+				ObjectMeta: metav1.ObjectMeta{Name: secretName.Name, Namespace: namespace},
+				Data:       map[string][]byte{corev1.TLSCertKey: authCertPem},
+			},
+			expectErrType: errGetAuthSecret,
+		},
+		"oauth-success": {
+			secret: &corev1.Secret{
+				Type:       corev1.SecretTypeOpaque,
+				ObjectMeta: metav1.ObjectMeta{Name: secretName.Name, Namespace: namespace},
+				Data: map[string][]byte{
+					"tokenUrl":     []byte("https://example.com/token"),
+					"clientId":     []byte("client-id"),
+					"clientSecret": []byte("client-secret"),
+				},
+			},
+		},
+		"oauth-success-with-optional-fields": {
+			secret: &corev1.Secret{
+				Type:       corev1.SecretTypeOpaque,
+				ObjectMeta: metav1.ObjectMeta{Name: secretName.Name, Namespace: namespace},
+				Data: map[string][]byte{
+					"tokenUrl":     []byte("https://example.com/token"),
+					"clientId":     []byte("client-id"),
+					"clientSecret": []byte("client-secret"),
+					"scopes":       []byte("openid profile"),
+					"audience":     []byte("https://api.example.com"),
+				},
+			},
+		},
+		"oauth-missing-token-url": {
+			secret: &corev1.Secret{
+				Type:       corev1.SecretTypeOpaque,
+				ObjectMeta: metav1.ObjectMeta{Name: secretName.Name, Namespace: namespace},
+				Data: map[string][]byte{
+					"clientId":     []byte("client-id"),
+					"clientSecret": []byte("client-secret"),
+				},
+			},
+			expectErrType: errGetAuthSecret,
+		},
+		"oauth-missing-client-id": {
+			secret: &corev1.Secret{
+				Type:       corev1.SecretTypeOpaque,
+				ObjectMeta: metav1.ObjectMeta{Name: secretName.Name, Namespace: namespace},
+				Data: map[string][]byte{
+					"tokenUrl":     []byte("https://example.com/token"),
+					"clientSecret": []byte("client-secret"),
+				},
+			},
+			expectErrType: errGetAuthSecret,
+		},
+		"oauth-missing-client-secret": {
+			secret: &corev1.Secret{
+				Type:       corev1.SecretTypeOpaque,
+				ObjectMeta: metav1.ObjectMeta{Name: secretName.Name, Namespace: namespace},
+				Data: map[string][]byte{
+					"tokenUrl": []byte("https://example.com/token"),
+					"clientId": []byte("client-id"),
+				},
+			},
+			expectErrType: errGetAuthSecret,
+		},
+		"unsupported-secret-type": {
+			secret: &corev1.Secret{
+				Type:       corev1.SecretTypeSSHAuth,
+				ObjectMeta: metav1.ObjectMeta{Name: secretName.Name, Namespace: namespace},
+				Data:       map[string][]byte{"ssh-privatekey": []byte("key")},
+			},
+			expectErrType: errGetAuthSecret,
+		},
+		"secret-not-found": {
+			expectErrType: errGetAuthSecret,
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, ejbcaissuerv1alpha1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			objects := []client.Object{}
+			if tc.secret != nil {
+				objects = append(objects, tc.secret)
+			}
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(objects...).
+				Build()
+			configClient := NewFakeConfigClient(fakeClient)
+			ctx := ctrl.LoggerInto(context.TODO(), logrtesting.NewTestLogger(t))
+			configClient.SetContext(ctx)
+
+			r := &IssuerReconciler{ConfigClient: configClient}
+			opt, err := r.fetchAuthOptions(ctx, secretName)
+
+			if tc.expectErrType != nil {
+				assertErrorIs(t, tc.expectErrType, err)
+				assert.Nil(t, opt)
+			} else {
+				require.NoError(t, err)
+				assert.NotNil(t, opt)
+			}
+		})
+	}
+}
+
+func TestFetchCACertBytes(t *testing.T) {
+	caCert, rootKey := issueTestCertificate(t, "Root-CA", nil, nil)
+	leafCert, _ := issueTestCertificate(t, "Leaf", caCert, rootKey)
+	leafCertPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leafCert.Raw})
+
+	const namespace = "ns1"
+
+	tests := map[string]struct {
+		objects       []client.Object
+		issuerSpec    ejbcaissuerv1alpha1.IssuerSpec
+		expectBytes   []byte
+		expectErrType error
+	}{
+		"no-ca-bundle": {
+			issuerSpec:  ejbcaissuerv1alpha1.IssuerSpec{},
+			expectBytes: nil,
+		},
+		"configmap-present": {
+			issuerSpec: ejbcaissuerv1alpha1.IssuerSpec{CaBundleConfigMapName: "ca-cm"},
+			objects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-cm", Namespace: namespace},
+					Data:       map[string]string{"ca-bundle.crt": string(leafCertPem)},
+				},
+			},
+			expectBytes: leafCertPem,
+		},
+		"configmap-key-specified": {
+			issuerSpec: ejbcaissuerv1alpha1.IssuerSpec{CaBundleConfigMapName: "ca-cm", CaBundleKey: "test.crt"},
+			objects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-cm", Namespace: namespace},
+					Data:       map[string]string{"aaa.crt": "data", "test.crt": string(leafCertPem), "zzz.crt": "data"},
+				},
+			},
+			expectBytes: leafCertPem,
+		},
+		"configmap-key-specified-missing": {
+			issuerSpec: ejbcaissuerv1alpha1.IssuerSpec{CaBundleConfigMapName: "ca-cm", CaBundleKey: "test.crt"},
+			objects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-cm", Namespace: namespace},
+					Data:       map[string]string{"wrong-key": "data"},
+				},
+			},
+			expectErrType: errGetCaConfigKey,
+		},
+		"configmap-not-found": {
+			issuerSpec:    ejbcaissuerv1alpha1.IssuerSpec{CaBundleConfigMapName: "ca-cm"},
+			expectErrType: errGetCaConfigMap,
+		},
+		"secret-present": {
+			issuerSpec: ejbcaissuerv1alpha1.IssuerSpec{CaBundleSecretName: "ca-secret"},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-secret", Namespace: namespace},
+					Data:       map[string][]byte{"ca.crt": leafCertPem},
+				},
+			},
+			expectBytes: leafCertPem,
+		},
+		"secret-key-specified": {
+			issuerSpec: ejbcaissuerv1alpha1.IssuerSpec{CaBundleSecretName: "ca-secret", CaBundleKey: "test.crt"},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-secret", Namespace: namespace},
+					Data:       map[string][]byte{"aaa.crt": []byte("data"), "test.crt": leafCertPem, "zzz.crt": []byte("data")},
+				},
+			},
+			expectBytes: leafCertPem,
+		},
+		"secret-key-specified-missing": {
+			issuerSpec: ejbcaissuerv1alpha1.IssuerSpec{CaBundleSecretName: "ca-secret", CaBundleKey: "test.crt"},
+			objects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-secret", Namespace: namespace},
+					Data:       map[string][]byte{"aaa.crt": []byte("data")},
+				},
+			},
+			expectErrType: errGetCaConfigKey,
+		},
+		"secret-not-found": {
+			issuerSpec:    ejbcaissuerv1alpha1.IssuerSpec{CaBundleSecretName: "ca-secret"},
+			expectErrType: errGetCaSecret,
+		},
+		"configmap-takes-precedence-over-secret": {
+			issuerSpec: ejbcaissuerv1alpha1.IssuerSpec{
+				CaBundleConfigMapName: "ca-cm",
+				CaBundleSecretName:    "ca-secret",
+			},
+			objects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-cm", Namespace: namespace},
+					Data:       map[string]string{"ca-bundle.crt": string(leafCertPem)},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "ca-secret", Namespace: namespace},
+					Data:       map[string][]byte{"ca.crt": []byte("should-not-be-used")},
+				},
+			},
+			expectBytes: leafCertPem,
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, ejbcaissuerv1alpha1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(tc.objects...).
+				Build()
+			configClient := NewFakeConfigClient(fakeClient)
+			ctx := ctrl.LoggerInto(context.TODO(), logrtesting.NewTestLogger(t))
+			configClient.SetContext(ctx)
+
+			r := &IssuerReconciler{ConfigClient: configClient}
+			got, err := r.fetchCACertBytes(ctx, &tc.issuerSpec, namespace)
+
+			if tc.expectErrType != nil {
+				assertErrorIs(t, tc.expectErrType, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tc.expectBytes, got)
 			}
 		})
 	}

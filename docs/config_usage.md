@@ -14,10 +14,14 @@ The ejbca-cert-manager-issuer can authenticate to EJBCA using mTLS (client certi
 
 The credential must be configured using a Kubernetes Secret. By default, the secret is expected to exist in the same namespace as the issuer controller (`ejbca-issuer-system` by default). This can be overridden by deploying the chart using the `--set "secretConfig.useClusterRoleForSecretAccess=true"` flag.
 
-If the EJBCA API is configured to use a self-signed certificate or with a certificate that isn't publically trusted, the CA certificate must be provided as a Kubernetes secret.
+If the EJBCA API is configured to use a self-signed certificate or with a certificate that isn't publically trusted, the CA certificate must be provided as a Kubernetes secret or as a configmap.
 
 ```shell
 kubectl -n ejbca-issuer-system create secret generic ejbca-ca-secret --from-file=ca.crt
+```
+
+```shell
+kubectl -n ejbca-issuer-system create configmap ejbca-ca-configmap --from-file=ca.crt
 ```
 
 #### mTLS
@@ -62,6 +66,7 @@ The `spec` field of both the Issuer and ClusterIssuer resources use the followin
 * `certificateProfileName` - The name of the EJBCA certificate profile to use. For example, `ENDUSER`
 * `endEntityProfileName` - The name of the EJBCA end entity profile to use. For example, `istio`
 * `caBundleSecretName` - The name of the Kubernetes secret containing the CA certificate. This field is optional and only required if the EJBCA API is configured to use a self-signed certificate or with a certificate signed by an untrusted root.
+* `caBundleConfigMapName` - The name of the Kubernetes config map containing the CA certificate. This field is optional and only required if the EJBCA API is configured to use a self-signed certificate or with a certificate signed by an untrusted root. The caBundleConfigMapName field takes precedence over caBundleSecretName if both are specified.
 * `endEntityName` - The name of the end entity to use. This field is optional. More information on how the field is used can be found in the [EJBCA End Entity Name Configuration](#ejbca-end-entity-name-configuration) section.
 
 ###### If a different combination of hostname/certificate authority/certificate profile/end entity profile is required, a new Issuer or ClusterIssuer resource must be created. Each resource instantiation represents a single configuration.
@@ -82,7 +87,7 @@ spec:
   certificateAuthorityName: ""
   certificateProfileName: ""
   endEntityProfileName: ""
-  caBundleSecretName: ""
+  caBundleConfigMapName: ""
   endEntityName: ""
 ```
 
@@ -103,7 +108,6 @@ spec:
   certificateAuthorityName: ""
   certificateProfileName: ""
   endEntityProfileName: ""
-  caBundleSecretName: ""
   endEntityName: ""
 ```
 
@@ -177,4 +181,3 @@ kubectl get secret ejbca-certificate -n ejbca-issuer-system -o jsonpath='{.data.
 ```
 
 ###### To learn more about certificate approval and RBAC configuration, see the [cert-manager documentation](https://cert-manager.io/docs/concepts/certificaterequest/#approval).
-
