@@ -1,5 +1,5 @@
 /*
-Copyright © 2024 Keyfactor
+Copyright © 2026 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@ import (
 	cmutil "github.com/cert-manager/cert-manager/pkg/api/util"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -208,78 +207,15 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		Name:      issuerSpec.EjbcaSecretName,
 		Namespace: secretNamespace,
 	}
-	caSecretName := types.NamespacedName{
-		Name:      issuerSpec.CaBundleSecretName,
-		Namespace: secretName.Namespace,
+
+	caCertBytes, err := fetchCACertBytes(ctx, issuerSpec, r.ConfigClient, secretName.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
-	var caSecret corev1.Secret
-	if issuerSpec.CaBundleSecretName != "" {
-		// If the CA secret name is not specified, we will not attempt to retrieve it
-		err = r.ConfigClient.GetSecret(caSecretName, &caSecret)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %w", errGetCaSecret, caSecretName, err)
-		}
-	}
-
-	var authSecret corev1.Secret
-	if err := r.ConfigClient.GetSecret(secretName, &authSecret); err != nil {
-		return ctrl.Result{}, fmt.Errorf("%w, secret name: %s, reason: %w", errGetAuthSecret, secretName, err)
-	}
-
-	var authOpt ejbca.Option
-	switch authSecret.Type {
-	case corev1.SecretTypeTLS:
-		cert, ok := authSecret.Data[corev1.TLSCertKey]
-		if !ok {
-			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found TLS secret with no certificate")
-		}
-		key, ok := authSecret.Data[corev1.TLSPrivateKeyKey]
-		if !ok {
-			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found TLS secret with no private key")
-		}
-		authOpt = ejbca.WithClientCert(&ejbca.CertAuth{
-			ClientCert: cert,
-			ClientKey:  key,
-		})
-	case corev1.SecretTypeOpaque:
-		// We expect auth credentials for a client credential OAuth2.0 flow if the secret type is opaque
-		tokenURL, ok := authSecret.Data["tokenUrl"]
-		if !ok {
-			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with no tokenUrl")
-		}
-		clientID, ok := authSecret.Data["clientId"]
-		if !ok {
-			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with no clientId")
-		}
-		clientSecret, ok := authSecret.Data["clientSecret"]
-		if !ok {
-			return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with no clientSecret")
-		}
-		oauth := &ejbca.OAuth{
-			TokenURL:     string(tokenURL),
-			ClientID:     string(clientID),
-			ClientSecret: string(clientSecret),
-		}
-		scopes, ok := authSecret.Data["scopes"]
-		if ok {
-			oauth.Scopes = string(scopes)
-		}
-		audience, ok := authSecret.Data["audience"]
-		if ok {
-			oauth.Audience = string(audience)
-		}
-		authOpt = ejbca.WithOAuth(oauth)
-	default:
-		return ctrl.Result{}, fmt.Errorf("%w: %v", errGetAuthSecret, "found secret with unsupported type")
-	}
-
-	var caCertBytes []byte
-	// There is no requirement that the CA certificate is stored under a specific
-	// key in the secret, so we can just iterate over the map and effectively select
-	// the last value in the map
-	for _, bytes := range caSecret.Data {
-		caCertBytes = bytes
+	authOpt, err := fetchAuthOptions(ctx, r.ConfigClient, secretName)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	// Compute notAfter from spec.duration if present.
@@ -296,7 +232,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	signer, err := r.SignerBuilder(ctx,
 		ejbca.WithHostname(issuerSpec.Hostname),
 		ejbca.WithCACerts(caCertBytes),
-		authOpt,
+		*authOpt,
 		ejbca.WithEndEntityProfileName(issuerSpec.EndEntityProfileName),
 		ejbca.WithCertificateProfileName(issuerSpec.CertificateProfileName),
 		ejbca.WithCertificateAuthority(issuerSpec.CertificateAuthorityName),

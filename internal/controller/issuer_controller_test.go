@@ -1,5 +1,5 @@
 /*
-Copyright © 2024 Keyfactor
+Copyright © 2026 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -632,8 +632,7 @@ func TestFetchAuthOptions(t *testing.T) {
 			ctx := ctrl.LoggerInto(context.TODO(), logrtesting.NewTestLogger(t))
 			configClient.SetContext(ctx)
 
-			r := &IssuerReconciler{ConfigClient: configClient}
-			opt, err := r.fetchAuthOptions(ctx, secretName)
+			opt, err := fetchAuthOptions(ctx, configClient, secretName)
 
 			if tc.expectErrType != nil {
 				assertErrorIs(t, tc.expectErrType, err)
@@ -764,8 +763,7 @@ func TestFetchCACertBytes(t *testing.T) {
 			ctx := ctrl.LoggerInto(context.TODO(), logrtesting.NewTestLogger(t))
 			configClient.SetContext(ctx)
 
-			r := &IssuerReconciler{ConfigClient: configClient}
-			got, err := r.fetchCACertBytes(ctx, &tc.issuerSpec, namespace)
+			got, err := fetchCACertBytes(ctx, &tc.issuerSpec, configClient, namespace)
 
 			if tc.expectErrType != nil {
 				assertErrorIs(t, tc.expectErrType, err)
