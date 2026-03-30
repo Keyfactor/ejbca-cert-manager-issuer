@@ -259,7 +259,7 @@ For example, ClusterIssuer resources can be used to issue certificates for resou
         ```
 
     - **ClusterIssuer**
-        
+
         Create a ClusterIssuer resource using the environment variables prepared in step 1.
 
         > **Note:** For `ClusterIssuer` resources, the referenced Secret and CA bundle Secret or ConfigMap must always exist in the controller namespace (`ejbca-issuer-system` by default). Ensure these resources are created there before applying the ClusterIssuer.
