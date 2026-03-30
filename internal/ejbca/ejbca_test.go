@@ -608,8 +608,10 @@ func TestSign(t *testing.T) {
 		certificateProfileName string
 		endEntityName          string
 		accountBindingID       string
+		notAfter               *time.Time
 
 		// Expected
+		expectedEndTime            string
 		errorExpected              bool
 		expectedErrorMessagePrefix string
 	}{
@@ -656,6 +658,37 @@ func TestSign(t *testing.T) {
 			errorExpected:              true,
 			expectedErrorMessagePrefix: "failed to enroll CSR - 500 Internal Server Error - EJBCA API returned error",
 		},
+		{
+			name: "WithNotAfter sets end_time on request",
+
+			certificateResponseFormat: "PEM",
+			ejbcaStatusCode:           http.StatusOK,
+
+			caName:                 "Fake-Sub-CA",
+			endEntityProfileName:   "fakeSubEAP",
+			certificateProfileName: "fakeSubCACP",
+			endEntityName:          "",
+			accountBindingID:       "",
+			notAfter:               func() *time.Time { t := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC); return &t }(),
+			expectedEndTime:        "2026-06-01 12:00:00",
+
+			errorExpected: false,
+		},
+		{
+			name: "Without NotAfter end_time not in request",
+
+			certificateResponseFormat: "PEM",
+			ejbcaStatusCode:           http.StatusOK,
+
+			caName:                 "Fake-Sub-CA",
+			endEntityProfileName:   "fakeSubEAP",
+			certificateProfileName: "fakeSubCACP",
+			endEntityName:          "",
+			accountBindingID:       "",
+			notAfter:               nil,
+
+			errorExpected: false,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			cn := "ejbca.example.org"
@@ -672,6 +705,14 @@ func TestSign(t *testing.T) {
 					require.Equal(t, tt.certificateProfileName, enrollRestRequest.GetCertificateProfileName())
 					require.Equal(t, tt.accountBindingID, enrollRestRequest.GetAccountBindingId())
 					require.Equal(t, cn, enrollRestRequest.GetUsername())
+
+					// Assert end_time presence based on notAfter
+					if tt.expectedEndTime != "" {
+						require.Contains(t, enrollRestRequest.AdditionalProperties, "end_time")
+						require.Equal(t, tt.expectedEndTime, enrollRestRequest.AdditionalProperties["end_time"])
+					} else {
+						require.NotContains(t, enrollRestRequest.AdditionalProperties, "end_time")
+					}
 
 					response := certificateRestResponseFromExpectedCerts(t, expectedLeafAndChain, []*x509.Certificate{caCert}, tt.certificateResponseFormat)
 
@@ -699,6 +740,7 @@ func TestSign(t *testing.T) {
 				WithCertificateProfileName(tt.certificateProfileName),
 				WithEndEntityProfileName(tt.endEntityProfileName),
 				WithEndEntityName("cn"),
+				WithNotAfter(tt.notAfter),
 				withAuthenticator(fakeClientConfig.newFakeAuthenticator),
 			)
 			require.NoError(t, err)
