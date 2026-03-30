@@ -1,5 +1,5 @@
 /*
-Copyright © 2024 Keyfactor
+Copyright © 2026 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -138,12 +138,12 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	// Set the context on the config client
 	r.ConfigClient.SetContext(ctx)
 
-	caCertBytes, err := r.fetchCACertBytes(ctx, issuerSpec, secretName.Namespace)
+	caCertBytes, err := fetchCACertBytes(ctx, issuerSpec, r.ConfigClient, secretName.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	authOpt, err := r.fetchAuthOptions(ctx, secretName)
+	authOpt, err := fetchAuthOptions(ctx, r.ConfigClient, secretName)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -158,6 +158,7 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 	}
 
 	if caCertBytes != nil {
+		logger.Info("CA certificate bytes successfully retrieved and will be included in health checker options")
 		opts = append(opts, ejbca.WithCACerts(caCertBytes))
 	}
 
@@ -177,7 +178,7 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res
 // fetchCACertBytes retrieves CA certificate bytes from either a ConfigMap or Secret
 // based on the issuer spec. Returns nil if no CA bundle is configured.
 // ConfigMap takes precedence over Secret when both are specified.
-func (r *IssuerReconciler) fetchCACertBytes(ctx context.Context, issuerSpec *ejbcaissuerv1alpha1.IssuerSpec, namespace string) ([]byte, error) {
+func fetchCACertBytes(ctx context.Context, issuerSpec *ejbcaissuerv1alpha1.IssuerSpec, configClient issuerutil.ConfigClient, namespace string) ([]byte, error) {
 	logger := ctrl.LoggerFrom(ctx)
 
 	var caData map[string][]byte
@@ -187,7 +188,7 @@ func (r *IssuerReconciler) fetchCACertBytes(ctx context.Context, issuerSpec *ejb
 		logger.Info("using CA bundle config map name", "configMapName", issuerSpec.CaBundleConfigMapName)
 		caConfigMapName := types.NamespacedName{Name: issuerSpec.CaBundleConfigMapName, Namespace: namespace}
 		var caConfigMap corev1.ConfigMap
-		if err := r.ConfigClient.GetConfigMap(caConfigMapName, &caConfigMap); err != nil {
+		if err := configClient.GetConfigMap(caConfigMapName, &caConfigMap); err != nil {
 			return nil, fmt.Errorf("%w, configMap name: %s, reason: %w", errGetCaConfigMap, caConfigMapName, err)
 		}
 
@@ -199,7 +200,7 @@ func (r *IssuerReconciler) fetchCACertBytes(ctx context.Context, issuerSpec *ejb
 		logger.Info("using CA bundle secret name", "secretName", issuerSpec.CaBundleSecretName)
 		caSecretName := types.NamespacedName{Name: issuerSpec.CaBundleSecretName, Namespace: namespace}
 		var caSecret corev1.Secret
-		if err := r.ConfigClient.GetSecret(caSecretName, &caSecret); err != nil {
+		if err := configClient.GetSecret(caSecretName, &caSecret); err != nil {
 			return nil, fmt.Errorf("%w, secret name: %s, reason: %w", errGetCaSecret, caSecretName, err)
 		}
 
@@ -235,11 +236,11 @@ func (r *IssuerReconciler) fetchCACertBytes(ctx context.Context, issuerSpec *ejb
 // It supports both TLS client certificate authentication (when the secret type is kubernetes.io/tls) and
 // OAuth2.0 client credentials authentication (when the secret type is kubernetes.io/opaque). The secret must be of the
 // appropriate type and contain the necessary keys for the selected authentication method.
-func (r *IssuerReconciler) fetchAuthOptions(ctx context.Context, secretName types.NamespacedName) (*ejbca.Option, error) {
+func fetchAuthOptions(ctx context.Context, configClient issuerutil.ConfigClient, secretName types.NamespacedName) (*ejbca.Option, error) {
 	logger := ctrl.LoggerFrom(ctx)
 
 	var authSecret corev1.Secret
-	if err := r.ConfigClient.GetSecret(secretName, &authSecret); err != nil {
+	if err := configClient.GetSecret(secretName, &authSecret); err != nil {
 		return nil, fmt.Errorf("%w, secret name: %s, reason: %w", errGetAuthSecret, secretName, err)
 	}
 
