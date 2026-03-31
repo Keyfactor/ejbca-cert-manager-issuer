@@ -1,7 +1,7 @@
 github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 h1:mFRzDkZVAjdal+s7s0MwaRv9igoPqLRdzOLzw/8Xvq8=
 github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358/go.mod h1:chxPXzSsl7ZWRAuOIE23GDNzjWuZquvFlgA8xmpunjU=
-github.com/Keyfactor/ejbca-go-client-sdk v1.1.0-rc.0 h1:NIPe9YlDuUu8Jy/UsDonTBSWBBjoYBTgvQCUVHkubqE=
-github.com/Keyfactor/ejbca-go-client-sdk v1.1.0-rc.0/go.mod h1:WtJ+IY1LjAuJjvwDy+oQ/UJ+bktHen1igaaSqOdIcQE=
+github.com/Keyfactor/ejbca-go-client-sdk v1.1.0 h1:d84RX+9QRO+b9nV/1jNo3t0/Xg92A4gXG+7fsG/WDgI=
+github.com/Keyfactor/ejbca-go-client-sdk v1.1.0/go.mod h1:WtJ+IY1LjAuJjvwDy+oQ/UJ+bktHen1igaaSqOdIcQE=
 github.com/Masterminds/semver/v3 v3.4.0 h1:Zog+i5UMtVoCU8oKka5P7i9q9HgrJeGzI9SA1Xbatp0=
 github.com/Masterminds/semver/v3 v3.4.0/go.mod h1:4V+yj/TJE1HU9XfppCwVMZq3I84lprf4nC11bSS5beM=
 github.com/alexbrainman/sspi v0.0.0-20231016080023-1a75b4708caa h1:LHTHcTQiSGT7VVbI0o4wBRNQIgn917usHWOd6VAffYI=
