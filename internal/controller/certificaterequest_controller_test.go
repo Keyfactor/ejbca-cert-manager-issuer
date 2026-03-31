@@ -1,5 +1,5 @@
 /*
-Copyright © 2024 Keyfactor
+Copyright © 2026 Keyfactor
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -322,6 +322,259 @@ func TestCertificateRequestReconcile(t *testing.T) {
 			expectedReadyConditionStatus: cmmeta.ConditionTrue,
 			expectedReadyConditionReason: cmapi.CertificateRequestReasonIssued,
 			expectedCertificate:          []byte("fake signed certificate"),
+		},
+		"success-issuer-cabundle-secret": {
+			name: types.NamespacedName{Namespace: "ns1", Name: "cr1"},
+			objects: []client.Object{
+				cmgen.CertificateRequest(
+					"cr1",
+					cmgen.SetCertificateRequestNamespace("ns1"),
+					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
+						Name:  "issuer1",
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
+						Kind:  "Issuer",
+					}),
+					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
+						Type:   cmapi.CertificateRequestConditionApproved,
+						Status: cmmeta.ConditionTrue,
+					}),
+					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
+						Type:   cmapi.CertificateRequestConditionReady,
+						Status: cmmeta.ConditionUnknown,
+					}),
+				),
+				&ejbcaissuerv1alpha1.Issuer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1",
+						Namespace: "ns1",
+					},
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
+						EjbcaSecretName:    "issuer1-credentials",
+						CaBundleSecretName: "ca-secret",
+						CaBundleKey:        "tls.crt",
+					},
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
+							{
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
+							},
+						},
+					},
+				},
+				&corev1.Secret{
+					Type: corev1.SecretTypeOpaque,
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1-credentials",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						"tokenUrl":     authCertPem,
+						"clientId":     authKeyPem,
+						"clientSecret": authKeyPem,
+						"scopes":       authKeyPem,
+						"audience":     authKeyPem,
+					},
+				},
+				&corev1.Secret{
+					Type: corev1.SecretTypeOpaque,
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ca-secret",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						"tls.crt": []byte("foobar"),
+					},
+				},
+			},
+			signerBuilder:                newFakeSignerBuilder(nil, nil),
+			expectedReadyConditionStatus: cmmeta.ConditionTrue,
+			expectedReadyConditionReason: cmapi.CertificateRequestReasonIssued,
+			expectedCertificate:          []byte("fake signed certificate"),
+		},
+		"success-issuer-cabundle-configmap": {
+			name: types.NamespacedName{Namespace: "ns1", Name: "cr1"},
+			objects: []client.Object{
+				cmgen.CertificateRequest(
+					"cr1",
+					cmgen.SetCertificateRequestNamespace("ns1"),
+					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
+						Name:  "issuer1",
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
+						Kind:  "Issuer",
+					}),
+					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
+						Type:   cmapi.CertificateRequestConditionApproved,
+						Status: cmmeta.ConditionTrue,
+					}),
+					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
+						Type:   cmapi.CertificateRequestConditionReady,
+						Status: cmmeta.ConditionUnknown,
+					}),
+				),
+				&ejbcaissuerv1alpha1.Issuer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1",
+						Namespace: "ns1",
+					},
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
+						EjbcaSecretName:       "issuer1-credentials",
+						CaBundleConfigMapName: "ca-config",
+						CaBundleKey:           "tls.crt",
+					},
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
+							{
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
+							},
+						},
+					},
+				},
+				&corev1.Secret{
+					Type: corev1.SecretTypeOpaque,
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1-credentials",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						"tokenUrl":     authCertPem,
+						"clientId":     authKeyPem,
+						"clientSecret": authKeyPem,
+						"scopes":       authKeyPem,
+						"audience":     authKeyPem,
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ca-config",
+						Namespace: "ns1",
+					},
+					Data: map[string]string{
+						"tls.crt": "foobar",
+					},
+				},
+			},
+			signerBuilder:                newFakeSignerBuilder(nil, nil),
+			expectedReadyConditionStatus: cmmeta.ConditionTrue,
+			expectedReadyConditionReason: cmapi.CertificateRequestReasonIssued,
+			expectedCertificate:          []byte("fake signed certificate"),
+		},
+		"error-cabundle-secret-not-found": {
+			name: types.NamespacedName{Namespace: "ns1", Name: "cr1"},
+			objects: []client.Object{
+				cmgen.CertificateRequest(
+					"cr1",
+					cmgen.SetCertificateRequestNamespace("ns1"),
+					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
+						Name:  "issuer1",
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
+						Kind:  "Issuer",
+					}),
+					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
+						Type:   cmapi.CertificateRequestConditionApproved,
+						Status: cmmeta.ConditionTrue,
+					}),
+					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
+						Type:   cmapi.CertificateRequestConditionReady,
+						Status: cmmeta.ConditionUnknown,
+					}),
+				),
+				&ejbcaissuerv1alpha1.Issuer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1",
+						Namespace: "ns1",
+					},
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
+						EjbcaSecretName:    "issuer1-credentials",
+						CaBundleSecretName: "foo",
+					},
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
+							{
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
+							},
+						},
+					},
+				},
+				&corev1.Secret{
+					Type: corev1.SecretTypeOpaque,
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1-credentials",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						"tokenUrl":     authCertPem,
+						"clientId":     authKeyPem,
+						"clientSecret": authKeyPem,
+						"scopes":       authKeyPem,
+						"audience":     authKeyPem,
+					},
+				},
+			},
+			signerBuilder:                newFakeSignerBuilder(nil, nil),
+			expectedReadyConditionStatus: cmmeta.ConditionFalse,
+			expectedReadyConditionReason: cmapi.CertificateRequestReasonPending,
+			expectedErrorMessagePrefix:   errGetCaSecret.Error(),
+		},
+		"error-cabundle-configmap-not-found": {
+			name: types.NamespacedName{Namespace: "ns1", Name: "cr1"},
+			objects: []client.Object{
+				cmgen.CertificateRequest(
+					"cr1",
+					cmgen.SetCertificateRequestNamespace("ns1"),
+					cmgen.SetCertificateRequestIssuer(cmmeta.ObjectReference{
+						Name:  "issuer1",
+						Group: ejbcaissuerv1alpha1.GroupVersion.Group,
+						Kind:  "Issuer",
+					}),
+					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
+						Type:   cmapi.CertificateRequestConditionApproved,
+						Status: cmmeta.ConditionTrue,
+					}),
+					cmgen.SetCertificateRequestStatusCondition(cmapi.CertificateRequestCondition{
+						Type:   cmapi.CertificateRequestConditionReady,
+						Status: cmmeta.ConditionUnknown,
+					}),
+				),
+				&ejbcaissuerv1alpha1.Issuer{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1",
+						Namespace: "ns1",
+					},
+					Spec: ejbcaissuerv1alpha1.IssuerSpec{
+						EjbcaSecretName:       "issuer1-credentials",
+						CaBundleConfigMapName: "foo",
+					},
+					Status: ejbcaissuerv1alpha1.IssuerStatus{
+						Conditions: []ejbcaissuerv1alpha1.IssuerCondition{
+							{
+								Type:   ejbcaissuerv1alpha1.IssuerConditionReady,
+								Status: ejbcaissuerv1alpha1.ConditionTrue,
+							},
+						},
+					},
+				},
+				&corev1.Secret{
+					Type: corev1.SecretTypeOpaque,
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "issuer1-credentials",
+						Namespace: "ns1",
+					},
+					Data: map[string][]byte{
+						"tokenUrl":     authCertPem,
+						"clientId":     authKeyPem,
+						"clientSecret": authKeyPem,
+						"scopes":       authKeyPem,
+						"audience":     authKeyPem,
+					},
+				},
+			},
+			signerBuilder:                newFakeSignerBuilder(nil, nil),
+			expectedReadyConditionStatus: cmmeta.ConditionFalse,
+			expectedReadyConditionReason: cmapi.CertificateRequestReasonPending,
+			expectedErrorMessagePrefix:   errGetCaConfigMap.Error(),
 		},
 		"certificaterequest-not-found": {
 			name: types.NamespacedName{Namespace: "ns1", Name: "cr1"},

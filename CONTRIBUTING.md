@@ -5,8 +5,8 @@ For information on how to contribute to EJBCA and related tools, see [EJBCA Cont
 # EJBCA Cert Manager Issuer Contribution Guide
 
 ## Requirements
-- Go (>= 1.24)
-- golangci-lint (v1.64.5) ([installation notes](https://github.com/golangci/golangci-lint?tab=readme-ov-file#install-golangci-lint))
+- Go (>= 1.25)
+- golangci-lint (>= 2.4.0) ([installation notes](https://github.com/golangci/golangci-lint?tab=readme-ov-file#install-golangci-lint))
 
 ## Installing dependencies
 Project dependencies can be installed by running the following:
@@ -26,6 +26,13 @@ The following command can be run to run the project unit tests:
 
 ```bash
 go test -v ./...
+```
+
+## Running linters
+The project uses golangci-lint to lint the codebase. The following command can be run to run the linters:
+
+```bash
+golangci-lint run
 ```
 
 ## Running end-to-end tests

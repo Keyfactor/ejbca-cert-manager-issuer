@@ -1,3 +1,13 @@
+# v2.2.0
+## Features:
+- Add support to specify a ConfigMap for CA trust bundles in Issuer / ClusterIssuer resources via the caBundleConfigMapName specification.
+- Add support for specifying a key on a Secret / ConfigMap resource for the CA trust bundle via the `caBundleKey` specification on an Issuer / ClusterIssuer resource.
+- On EJBCA 9.3.3 and above, if the certificate profile has "Allow Validity Override" enabled, the certificate's "Not After" will be set according to the `duration` property of the Certificate resource, otherwise it will be set according to the default validity configured in EJBCA for the relevant CA. 
+## Chores:
+- Update README links with updated EJBCA links
+- Update dependencies
+
+
 # v2.1.3
 ## Chores:
 - Build Docker image from Go 1.24 instead of 1.24.6
