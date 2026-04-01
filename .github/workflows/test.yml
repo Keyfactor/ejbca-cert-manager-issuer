@@ -28,9 +28,16 @@ jobs:
       # Run Go linters
       # https://github.com/golangci/golangci-lint-action
       - name: Run linters
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
-          version: v1.64.5
+          version: v2.4.0
+
+      - name: Regenerate CRDs
+        run: make generate manifests
+      - name: Check for CRD drift
+        run: |
+          git diff --compact-summary --exit-code || \
+            (echo; echo "Unexpected difference in directories after code generation. Run 'make generate manifests' and commit."; exit 1)
 
   test:
     name: Go Test
