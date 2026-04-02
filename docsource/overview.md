@@ -29,21 +29,23 @@ Before starting, ensure that the following requirements are met:
 
 ## Configuring EJBCA
 
-EJBCA Issuer enrolls certificates by creating or updating an [End Entity](https://doc.primekey.com/ejbca/ejbca-operations/ejbca-ca-concept-guide/end-entities-overview) via the PKCS10 Enroll REST request. Before using EJBCA Issuer, you must create or identify an End Entity Profile _and_ a Certificate Profile suitable for your usecase.
+EJBCA Issuer enrolls certificates by creating or updating an [End Entity](https://docs.keyfactor.com/ejbca/latest/end-entities) via the [PKCS10 Enroll REST request](https://docs.keyfactor.com/ejbca/latest/ejbca-rest-interface#id-(9.5)EJBCARESTInterface-Enrollpkcs10CertificatewithOneRequestOnly). Before using EJBCA Issuer, you must create or identify an End Entity Profile _and_ a Certificate Profile suitable for your usecase.
 
 1. **Create or identify a Certificate Profile**
 
     Certificate Profiles in EJBCA define the properties and constraints of the certificates being issued. This includes settings like key usage, extended key usage, validity period, allowed key algorithms, and signature algorithms.
 
-    - If you haven't created a Certificate Profile before, [this guide](https://doc.primekey.com/ejbca/ejbca-operations/ejbca-operations-guide/ca-operations-guide/managing-certificate-profiles/create-a-certificate-profile-for-ssl-servers) walks you through how to create a Certificate Profile in the EJBCA AdminWeb.
+    - If you haven't created a Certificate Profile before, [this guide](https://docs.keyfactor.com/ejbca/latest/certificate-profiles-overview) walks you through how to create a Certificate Profile in the EJBCA AdminWeb.
 
-    You should make careful note of the allowed Key Types and Key Sizes on the Certificate Profile. When creating cert-manager [Certificates](https://cert-manager.io/docs/usage/certificate/), you must make sure that the key `algorithm` and `size` are allowed by your Certificate Profile in EJBCA.    
+    You should make careful note of the allowed Key Types and Key Sizes on the Certificate Profile. When creating cert-manager [Certificates](https://cert-manager.io/docs/usage/certificate/), you must make sure that the key `algorithm` and `size` are allowed by your Certificate Profile in EJBCA.
+
+    > As of EJBCA 9.3.3, if the certificate profile has "Allow Validity Override" enabled, ejbca-cert-manager-issuer will attempt to set the expiration of the issued certificate to match the `duration` field of the cert-manager Certificate resource. If "Allow Validity Override" is not enabled, the issued certificate will have the default validity period defined in EJBCA, regardless of the `duration` field in cert-manager. ([Docs](https://docs.keyfactor.com/ejbca/latest/certificate-profile-fields#id-(9.5)CertificateProfileFields-Validityvalidity))
 
 2. **Create or identify an End Entity Profile**
 
     End Entity Profiles in EJBCA define the rules for managing certificate requesters (end entities) and their associated data. They define which fields are required, optional, or hidden during the certificate enrollment process (e.g., common name, email, organization, SANs). End Entity Profiles control the type of information that end entities must provide and how that information is validated before issuing certificates.
 
-    - If you haven't created an End Entity Profile before, [this guide](https://doc.primekey.com/ejbca/ejbca-operations/ejbca-operations-guide/ca-operations-guide/end-entity-profile-operations/create-an-end-entity-profile-for-ssl-servers) walks you through how to create an End Entity Profile in the EJBCA AdminWeb.
+    - If you haven't created an End Entity Profile before, [this guide](https://docs.keyfactor.com/ejbca/latest/end-entity-profile-operations#id-(9.5)EndEntityProfileOperations-CreateServerEndEntityProfile) walks you through how to create an End Entity Profile in the EJBCA AdminWeb.
 
     You should make careful note of the **Subject DN Attributes** and **Other Subject Attributes** specified by your End Entity Profile. When creating cert-manager [Certificates](https://cert-manager.io/docs/usage/certificate/), you must make sure that the `subject`, `commonName`, `dnsNames`, etc. are allowed and/or configured correctly by your End Entity Profile in EJBCA.
 
@@ -51,7 +53,7 @@ EJBCA Issuer enrolls certificates by creating or updating an [End Entity](https:
 
     Roles define groups of users or administrators with specific permissions. In EJBCA, users and administrators are identified by being members of a particular role. Access Rules are permissions that dictate what actions a role can perform and what parts of the system it can interact with.  
 
-    - If you haven't created Roles and Access rules before, [this guide](https://doc.primekey.com/ejbca/ejbca-operations/ejbca-ca-concept-guide/roles-and-access-rules) provides a primer on these concepts in EJCBA.
+    - If you haven't created Roles and Access rules before, [this guide](https://docs.keyfactor.com/ejbca/latest/managing-roles-and-access-rules-from-the-ra) provides a primer on these concepts in EJCBA.
 
     If your security policy requires fine-grain access control, EJBCA Issuer requires the following Access Rules.
 
@@ -101,9 +103,10 @@ EJBCA Issuer is installed using a Helm chart. The chart is available in the [EJB
 
 EJBCA Issuer supports authentication to EJBCA using mTLS (client certificate & key) or the OAuth 2.0 "client credentials" token flow (sometimes called two-legged OAuth 2.0).
 
-Credentials must be configured using a Kubernetes Secret. By default, the secret is expected to exist in the same namespace as the issuer controller (`ejbca-issuer-system` by default). 
+Credentials must be configured using a Kubernetes Secret. Where that Secret must live depends on the issuer type:
 
-> EJBCA Issuer can read secrets in the Issuer namespace if `--set "secretConfig.useClusterRoleForSecretAccess=true"` flag is set when installing the Helm chart.
+- **ClusterIssuer**: The Secret must always exist in the same namespace as the issuer controller (`ejbca-issuer-system` by default), regardless of Helm configuration.
+- **Issuer**: By default, the Secret must also exist in the controller namespace (`ejbca-issuer-system`). If the Helm chart is installed with `--set "secretConfig.useClusterRoleForSecretAccess=true"`, the Secret can instead exist in the same namespace as the `Issuer` resource itself, enabling each team to manage their own credentials without access to the controller namespace.
 
 ## mTLS
 
@@ -135,10 +138,41 @@ kubectl -n ejbca-issuer-system create secret generic ejbca-secret \
 
 # CA Bundle
 
-If the EJBCA API is configured to use a self-signed certificate or with a certificate that isn't publically trusted, the CA certificate must be provided as a Kubernetes secret.
+If the EJBCA API is configured to use a self-signed certificate or with a certificate that isn't publicly trusted, the CA certificate **must be provided** as a Kubernetes Secret or ConfigMap for EJBCA Issuer to trust the API endpoint.
+
+Where the Secret or ConfigMap must live follows the same rules as the authentication Secret:
+
+- **ClusterIssuer**: The CA bundle Secret or ConfigMap must always exist in the controller namespace (`ejbca-issuer-system` by default).
+- **Issuer**: By default, the CA bundle must also exist in the controller namespace. If the Helm chart is installed with `--set "secretConfig.useClusterRoleForSecretAccess=true"` (for Secrets) or `--set "secretConfig.useClusterRoleForConfigMapAccess=true"` (for ConfigMaps), the CA bundle can instead exist in the same namespace as the `Issuer` resource.
+
+> [!NOTE]
+>
+> Even if your EJBCA instance is using a publicly trusted certificate, it is still recommended  production workloads provide the CA bundle to ensure the authenticity of the API endpoint. Please see the [CA Bundle documentation](https://github.com/Keyfactor/command-cert-manager-issuer/blob/main/docs/ca-bundle/README.md#using-publicly-trusted-certificates) from the command-cert-manager-issuer project for details on how to configure a CA bundle sync.
+
+The CA bundle must be in PEM format and can contain one or more CA certificates. A few additional notes on configuration:
+
+- If both `caBundleSecretName` and `caBundleConfigMapName` are specified, `caBundleConfigMapName` takes precedence.
+- If the Secret or ConfigMap contains multiple keys, use `caBundleKey` to specify which key holds the CA certificate. If `caBundleKey` is not specified, the last key in the Secret or ConfigMap will be used.
 
 ```shell
 kubectl -n ejbca-issuer-system create secret generic ejbca-ca-secret --from-file=ca.crt
+
+kubectl -n ejbca-issuer-system create configmap ejbca-ca --from-file=ca.crt
+```
+
+In the Issuer / ClusterIssuer specification, reference the created resource.
+
+```yaml
+ apiVersion: ejbca-issuer.keyfactor.com/v1alpha1
+ kind: Issuer
+ metadata:
+   name: issuer-sample
+   namespace: default
+ spec:
+   ...
+   caBundleSecretName: "ejbca-ca-secret" # if using Kubernetes Secret
+   caBundleConfigMapName: "ejbca-ca" # if using Kubernetes ConfigMap
+   caBundleKey: "ca.crt" # optional key name, pulls the last key in resource if not specified
 ```
 
 # Creating Issuer and ClusterIssuer resources
@@ -160,11 +194,13 @@ For example, ClusterIssuer resources can be used to issue certificates for resou
     | Field Name               | Description                                                                                                                                   |
     |--------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
     | hostname                 | The hostname of the EJBCA instance                                                                                                           |
-    | ejbcaSecretName          | The name of the Kubernetes secret containing the client certificate and key or OAuth 2.0 credentials                                          |
+    | ejbcaSecretName          | The name of the Kubernetes Secret containing the client certificate and key or OAuth 2.0 credentials                                          |
     | certificateAuthorityName | The name of the EJBCA certificate authority to use. For example, `ManagementCA`                                                              |
     | certificateProfileName   | The name of the EJBCA certificate profile to use. For example, `ENDUSER`                                                                     |
     | endEntityProfileName     | The name of the EJBCA end entity profile to use. For example, `istio`                                                                        |
-    | caBundleSecretName       | The name of the Kubernetes secret containing the CA certificate. Optional, required if using a self-signed or untrusted root certificate      |
+    | caBundleSecretName       | The name of the Kubernetes Secret containing the CA certificate. Optional, required if using a self-signed or untrusted root certificate.      |
+    | caBundleConfigMapName       | The name of the Kubernetes ConfigMap containing the CA certificate. Optional, required if using a self-signed or untrusted root certificate. Takes precedence over caBundleSecretName if both are specified      |
+    | caBundleKey             | The key in the Kubernetes Secret or ConfigMap that contains the CA certificate. Optional. If not specified, the last key in the Secret or ConfigMap will be used.      |
     | endEntityName            | The name of the end entity to use. Optional. Refer to the EJBCA End Entity Name Configuration section for more details on how this field is used |
 
     > If a different combination of hostname/certificate authority/certificate profile/end entity profile is required, a new Issuer or ClusterIssuer resource must be created. Each resource instantiation represents a single configuration.
@@ -186,6 +222,8 @@ For example, ClusterIssuer resources can be used to issue certificates for resou
           hostname: "$HOSTNAME"
           ejbcaSecretName: "ejbca-secret" # references the secret created above
           caBundleSecretName: "ejbca-ca-secret" # references the secret created above
+          # caBundleConfigMapName: "ejbca-ca" # alternatively, reference the configmap created above
+          # caBundleKey: "ca.crt" # optional, specify if secret or config
 
           certificateAuthorityName: "$EJBCA_CA_NAME"
           certificateProfileName: "$CERTIFICATE_PROFILE_NAME"
@@ -198,8 +236,10 @@ For example, ClusterIssuer resources can be used to issue certificates for resou
         ```
 
     - **ClusterIssuer**
-        
+
         Create a ClusterIssuer resource using the environment variables prepared in step 1.
+
+        > **Note:** For `ClusterIssuer` resources, the referenced Secret and CA bundle Secret or ConfigMap must always exist in the controller namespace (`ejbca-issuer-system` by default). Ensure these resources are created there before applying the ClusterIssuer.
 
         ```yaml
         cat <<EOF > ./clusterissuer.yaml
@@ -209,8 +249,10 @@ For example, ClusterIssuer resources can be used to issue certificates for resou
           name: clusterissuer-sample
         spec:
           hostname: "$HOSTNAME"
-          ejbcaSecretName: "ejbca-secret" # references the secret created above
-          caBundleSecretName: "ejbca-ca-secret" # references the secret created above
+          ejbcaSecretName: "ejbca-secret" # must exist in ejbca-issuer-system
+          caBundleSecretName: "ejbca-ca-secret" # must exist in ejbca-issuer-system
+          # caBundleConfigMapName: "ejbca-ca" # alternatively, reference the configmap created above
+          # caBundleKey: "ca.crt" # optional, specify if secret or config
 
           certificateAuthorityName: "$EJBCA_CA_NAME"
           certificateProfileName: "$CERTIFICATE_PROFILE_NAME"
@@ -248,6 +290,7 @@ spec:
     kind: Issuer
   commonName: example.com
   secretName: ejbca-certificate
+  duration: 2160h # 90 days
 ```
 
 > Certificate resources support many more fields than the above example. See the [Certificate resource documentation](https://cert-manager.io/docs/usage/certificate/) for more information.
@@ -264,6 +307,7 @@ spec:
     group: ejbca-issuer.keyfactor.com
     kind: Issuer
   request: <csr>
+  duration: 2160h0m0s # 90 days
 ```
 
 > All fields in EJBCA Issuer and ClusterIssuer `spec` can be overridden by applying Kubernetes Annotations to Certificates _and_ CertificateRequests. See [runtime customization for more](docs/annotations.md) 

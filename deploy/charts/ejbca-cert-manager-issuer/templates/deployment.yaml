@@ -59,6 +59,9 @@ spec:
             {{- if .Values.secretConfig.useClusterRoleForSecretAccess}}
             - --secret-access-granted-at-cluster-level
             {{- end}}
+            {{- if .Values.secretConfig.useClusterRoleForConfigMapAccess}}
+            - --configmap-access-granted-at-cluster-level
+            {{- end}}
           command:
             - /manager
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.Version }}"

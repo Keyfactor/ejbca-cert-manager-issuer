@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/Keyfactor/ejbca-go-client-sdk/api/ejbca"
 	cmpki "github.com/cert-manager/cert-manager/pkg/util/pki"
@@ -85,6 +86,7 @@ type Config struct {
 	endEntityName              string
 	certManagerCertificateName string
 	annotations                map[string]string
+	notAfter                   *time.Time // nil = use Certificate Profile default
 }
 
 func (c *Config) validate(ctx context.Context) error {
@@ -276,6 +278,15 @@ func WithAnnotations(annotations map[string]string) Option {
 	}
 }
 
+// WithNotAfter sets a specific notAfter time for the certificate request.
+// If nil, the Certificate Profile default validity is used.
+// This corresponds to spec.duration on the cert-manager CertificateRequest.
+func WithNotAfter(t *time.Time) Option {
+	return func(s *signer) {
+		s.config.notAfter = t
+	}
+}
+
 func withAuthenticator(newAuthenticator newEjbcaAuthenticatorFunc) Option {
 	return func(s *signer) {
 		s.hooks.newAuthenticator = newAuthenticator
@@ -324,6 +335,17 @@ func (s *signer) Sign(ctx context.Context, csrBytes []byte) ([]byte, []byte, err
 	enroll.SetUsername(ejbcaEeName)
 	enroll.SetPassword(password)
 	enroll.SetIncludeChain(true)
+
+	if s.config.notAfter != nil {
+		// JohnB: end_time is the EJBCA REST API v1 field for validity override.
+		// Required format: "2006-01-02 15:04:05" (UTC, no T separator, no Z suffix).
+		// RFC3339 is rejected by EJBCA with "Ignoring invalid start time format".
+		notAfterStr := s.config.notAfter.UTC().Format("2006-01-02 15:04:05")
+		enroll.AdditionalProperties = map[string]interface{}{
+			"end_time": notAfterStr,
+		}
+		logger.Info("Requesting certificate validity override", "notAfter", notAfterStr)
+	}
 
 	logger.Info("Enrolling certificate with EJBCA", "commonName", csr.Subject.CommonName, "dnsNames", csr.DNSNames, "ipAddresses", csr.IPAddresses, "uriSans", csr.URIs)
 

@@ -29,6 +29,8 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/utils/clock"
 
+	corev1 "k8s.io/api/core/v1"
+
 	ejbcaissuerv1alpha1 "github.com/Keyfactor/ejbca-cert-manager-issuer/api/v1alpha1"
 	"github.com/Keyfactor/ejbca-cert-manager-issuer/internal/controller"
 	"github.com/Keyfactor/ejbca-cert-manager-issuer/internal/ejbca"
@@ -38,6 +40,8 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -70,6 +74,7 @@ func main() {
 	var clusterResourceNamespace string
 	var disableApprovedCheck bool
 	var secretAccessGrantedAtClusterLevel bool
+	var configMapAccessGrantedAtClusterLevel bool
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -88,6 +93,8 @@ func main() {
 		"Disables waiting for CertificateRequests to have an approved condition before signing.")
 	flag.BoolVar(&secretAccessGrantedAtClusterLevel, "secret-access-granted-at-cluster-level", false,
 		"Set this flag to true if the secret access is granted at cluster level. This will allow the controller to access secrets in any namespace. ")
+	flag.BoolVar(&configMapAccessGrantedAtClusterLevel, "configmap-access-granted-at-cluster-level", false,
+		"Set this flag to true if the configmap access is granted at cluster level. This will allow the controller to access configmaps in any namespace. ")
 
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
@@ -107,10 +114,29 @@ func main() {
 		}
 	}
 
-	if secretAccessGrantedAtClusterLevel {
-		setupLog.Info("expecting secret access at cluster level")
-	} else {
-		setupLog.Info(fmt.Sprintf("expecting secret access at namespace level (%s)", clusterResourceNamespace))
+	var cacheOpts cache.Options
+
+	// Build the ByObject map if either resource is namespace-scoped
+	if !secretAccessGrantedAtClusterLevel || !configMapAccessGrantedAtClusterLevel {
+		byObject := make(map[client.Object]cache.ByObject)
+
+		if !secretAccessGrantedAtClusterLevel {
+			setupLog.Info(fmt.Sprintf("expecting SA to have Get+List+Watch permissions for corev1 Secret resources in the %q namespace", clusterResourceNamespace))
+			byObject[&corev1.Secret{}] = cache.ByObject{
+				Namespaces: map[string]cache.Config{clusterResourceNamespace: {}},
+			}
+		} else {
+			setupLog.Info("expecting SA to have Get+List+Watch permissions for corev1 Secret resources at cluster level")
+		}
+
+		if !configMapAccessGrantedAtClusterLevel {
+			setupLog.Info(fmt.Sprintf("expecting SA to have Get+List+Watch permissions for corev1 ConfigMap resources in the %q namespace", clusterResourceNamespace))
+			byObject[&corev1.ConfigMap{}] = cache.ByObject{
+				Namespaces: map[string]cache.Config{clusterResourceNamespace: {}},
+			}
+		} else {
+			setupLog.Info("expecting SA to have Get+List+Watch permissions for corev1 ConfigMap resources at cluster level")
+		}
 	}
 
 	ctx := context.Background()
@@ -146,6 +172,7 @@ func main() {
 			SecureServing: secureMetrics,
 			TLSOpts:       tlsOpts,
 		},
+		Cache:                  cacheOpts,
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,

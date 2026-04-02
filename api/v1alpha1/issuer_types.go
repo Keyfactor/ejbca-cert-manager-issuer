@@ -48,6 +48,12 @@ type IssuerSpec struct {
 	// +optional
 	CaBundleConfigMapName string `json:"caBundleConfigMapName"`
 
+	// The key in the Secret or ConfigMap containing the CA certificate bundle.
+	// Applies to both caBundleSecretName and caBundleConfigMapName.
+	// If unspecified, the last key alphabetically in the Secret or ConfigMap will be used.
+	// +optional
+	CaBundleKey string `json:"caBundleKey,omitempty"`
+
 	// Optional field that overrides the default for how the EJBCA issuer should determine the
 	// name of the end entity to reference or create when signing certificates.
 	// The options are:

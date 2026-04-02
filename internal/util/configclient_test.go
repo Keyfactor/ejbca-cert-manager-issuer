@@ -48,7 +48,7 @@ func TestConfigClient(t *testing.T) {
 	}
 
 	// Create a fake clientset with the test objects
-	clientset := fake.NewSimpleClientset([]runtime.Object{
+	clientset := fake.NewClientset([]runtime.Object{
 		testConfigMap,
 		testSecret,
 	}...)
