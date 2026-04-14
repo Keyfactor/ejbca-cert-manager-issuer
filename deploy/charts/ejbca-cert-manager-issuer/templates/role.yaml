@@ -25,3 +25,22 @@ rules:
     verbs:
       - create
       - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ if .Values.secretConfig.useClusterRoleForConfigMapAccess }}ClusterRole{{ else }}Role{{ end }}
+metadata:
+  labels:
+    {{- include "ejbca-cert-manager-issuer.labels" . | nindent 4 }}
+  name: {{ include "ejbca-cert-manager-issuer.name" . }}-configmap-reader-role
+  {{- if not .Values.secretConfig.useClusterRoleForConfigMapAccess }}  
+  namespace: {{ .Release.Namespace }}  
+  {{- end }}  
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch

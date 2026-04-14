@@ -47,6 +47,9 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: true
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3.5
       
       # Run Go linters
       # https://github.com/golangci/golangci-lint-action

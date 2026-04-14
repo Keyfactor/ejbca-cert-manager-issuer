@@ -93,9 +93,14 @@ helm-template: ## Render Helm chart templates to stdout (includes CRDs).
 	helm template ejbca-cert-manager-issuer $(HELM_CHART_DIR) --include-crds
 
 .PHONY: lint-manifests
-lint-manifests: kube-linter conftest ## Lint rendered Helm manifests with kube-linter and run Conftest policy checks.
-# 	helm template ejbca-cert-manager-issuer $(HELM_CHART_DIR) --include-crds | $(KUBE_LINTER) lint -
-	helm template ejbca-cert-manager-issuer $(HELM_CHART_DIR) --include-crds | $(CONFTEST) test --policy $(POLICY_DIR) -
+lint-manifests: conftest ## Run Conftest policy checks against every CI values file in $(HELM_CHART_DIR)/ci/.
+	@failed=0; \
+	for f in $(HELM_CHART_DIR)/ci/*-values.yaml; do \
+		echo "==> $$(basename $$f)"; \
+		helm template ejbca-cert-manager-issuer $(HELM_CHART_DIR) --include-crds -f "$$f" \
+			| $(CONFTEST) test --policy $(POLICY_DIR) - || failed=1; \
+	done; \
+	exit $$failed
 
 ##@ Build
 
