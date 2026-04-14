@@ -1,10 +1,10 @@
-name: test
+name: Build Test and Lint
 on: [workflow_dispatch, push, pull_request]
 jobs:
   build:
-    name: Build and Lint
+    name: Build and Test
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       # Checkout code
       # https://github.com/actions/checkout
@@ -25,25 +25,15 @@ jobs:
       # Build Go binary
       - run: go build -v cmd/main.go
 
-      # Run Go linters
-      # https://github.com/golangci/golangci-lint-action
-      - name: Run linters
-        uses: golangci/golangci-lint-action@v7
-        with:
-          version: v2.4.0
+      # Compile test packages without running them to warm the build cache.
+      # The test job restores this cache and only needs to execute the binaries.
+      - run: go test -run=^$ ./...
 
-      - name: Regenerate CRDs
-        run: make generate manifests
-      - name: Check for CRD drift
-        run: |
-          git diff --compact-summary --exit-code || \
-            (echo; echo "Unexpected difference in directories after code generation. Run 'make generate manifests' and commit."; exit 1)
-
-  test:
-    name: Go Test
+  lint:
+    name: Lint
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       # Checkout code
       # https://github.com/actions/checkout
@@ -57,10 +47,23 @@ jobs:
         with:
           go-version-file: 'go.mod'
           cache: true
+      
+      # Run Go linters
+      # https://github.com/golangci/golangci-lint-action
+      - name: Run linters
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.4.0
 
-      # Run Go tests
-      - name: Run go test
-        run: go test -v ./...
+      - name: Regenerate CRDs
+        run: make generate manifests
+      - name: Check for CRD drift
+        run: |
+          git diff --compact-summary --exit-code -- config/crd deploy/charts || \
+            (echo; echo "Unexpected difference in directories after code generation. Run 'make generate manifests' and commit."; exit 1)
+
+      - name: Lint Helm manifests
+        run: make lint-manifests
 
   ## TODO: These integration tests are breaking in GitHub Actions. Need to investigate further as to why.
   # integration:
