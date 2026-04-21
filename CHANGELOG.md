@@ -1,3 +1,9 @@
+# v2.2.1
+## Fixes
+- Update Role and RoleBinding resources to have correct namespace when `secretConfig.useClusterRoleForConfigMapAccess` is set to `false` in Helm chart values.
+## Chores:
+- Update GitHub Actions workflow to check for policy enforcement on Helm chart rendered manifests in addition to checking for drift in generated CRDs.
+
 # v2.2.0
 ## Features:
 - Add support to specify a ConfigMap for CA trust bundles in Issuer / ClusterIssuer resources via the caBundleConfigMapName specification.

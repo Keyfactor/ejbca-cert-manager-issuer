@@ -65,7 +65,6 @@ cp .env.example .env
 | `HELM_CHART_VERSION` | Helm chart version to test | `local` |
 | `IMAGE_REGISTRY` | Optional registry to push the image to if `IMAGE_TAG` != `local` | |
 
-
 ## Configuring EJBCA Security Role
 The EJBCA issuer needs to be able to interact with the EJBCA instance to sign the CertificateRequest. The OAuth subject defined in the `OAUTH_CLIENT_ID` environment variable needs to be configured with a security role with the permissions defined in the [Configure EJBCA Roles and Access Rules](../../README.md#configuring-ejbca) section of the root README.
 

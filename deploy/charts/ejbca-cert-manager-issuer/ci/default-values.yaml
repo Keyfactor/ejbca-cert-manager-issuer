@@ -1,0 +1,7 @@
+# Default configuration — all flags at their chart defaults.
+# Role/RoleBinding namespace-scoped paths are exercised.
+secretConfig:
+  useClusterRoleForSecretAccess: false
+  useClusterRoleForConfigMapAccess: false
+metrics:
+  secure: false
