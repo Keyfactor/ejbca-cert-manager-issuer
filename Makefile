@@ -20,6 +20,10 @@ endif
 # tools. (i.e. podman)
 CONTAINER_TOOL ?= docker
 
+# Helm chart and Conftest policy directory for manifest linting
+HELM_CHART_DIR ?= deploy/charts/ejbca-cert-manager-issuer
+POLICY_DIR ?= policy
+
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
 SHELL = /usr/bin/env bash -o pipefail
@@ -83,6 +87,20 @@ lint: golangci-lint ## Run golangci-lint linter & yamllint
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 	$(GOLANGCI_LINT) run --fix
+
+.PHONY: helm-template
+helm-template: ## Render Helm chart templates to stdout (includes CRDs).
+	helm template ejbca-cert-manager-issuer $(HELM_CHART_DIR) --include-crds
+
+.PHONY: lint-manifests
+lint-manifests: conftest ## Run Conftest policy checks against every CI values file in $(HELM_CHART_DIR)/ci/.
+	@failed=0; \
+	for f in $(HELM_CHART_DIR)/ci/*-values.yaml; do \
+		echo "==> $$(basename $$f)"; \
+		helm template ejbca-cert-manager-issuer $(HELM_CHART_DIR) --include-crds -f "$$f" \
+			| $(CONFTEST) test --policy $(POLICY_DIR) - || failed=1; \
+	done; \
+	exit $$failed
 
 ##@ Build
 
@@ -168,12 +186,16 @@ KUSTOMIZE ?= $(LOCALBIN)/kustomize-$(KUSTOMIZE_VERSION)
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
 ENVTEST ?= $(LOCALBIN)/setup-envtest-$(ENVTEST_VERSION)
 GOLANGCI_LINT = $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
+KUBE_LINTER = $(LOCALBIN)/kube-linter-$(KUBE_LINTER_VERSION)
+CONFTEST = $(LOCALBIN)/conftest-$(CONFTEST_VERSION)
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.3.0
 CONTROLLER_TOOLS_VERSION ?= v0.17.3
 ENVTEST_VERSION ?= latest
 GOLANGCI_LINT_VERSION ?= v2.4.0
+KUBE_LINTER_VERSION ?= v0.6.8
+CONFTEST_VERSION ?= v0.60.0
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -196,9 +218,19 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 	@[ -f $(GOLANGCI_LINT) ] || { \
 	set -e; \
 	echo "Downloading golangci-lint $(GOLANGCI_LINT_VERSION)" ;\
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(LOCALBIN) $(GOLANGCI_LINT_VERSION) ;\
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCI_LINT_VERSION)/install.sh | sh -s -- -b $(LOCALBIN) $(GOLANGCI_LINT_VERSION) ;\
 	mv $(LOCALBIN)/golangci-lint $(GOLANGCI_LINT) ;\
 	}
+
+.PHONY: kube-linter
+kube-linter: $(KUBE_LINTER) ## Download kube-linter locally if necessary.
+$(KUBE_LINTER): $(LOCALBIN)
+	$(call go-install-tool,$(KUBE_LINTER),golang.stackrox.io/kube-linter/cmd/kube-linter,$(KUBE_LINTER_VERSION))
+
+.PHONY: conftest
+conftest: $(CONFTEST) ## Download conftest locally if necessary.
+$(CONFTEST): $(LOCALBIN)
+	$(call go-install-tool,$(CONFTEST),github.com/open-policy-agent/conftest,$(CONFTEST_VERSION))
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary (ideally with version)

@@ -1,0 +1,6 @@
+checks:
+  addAllBuiltIn: true
+  # Add project-specific exclusions below as needed, e.g.:
+  # exclude:
+  #   - "unset-cpu-requirements"
+  #   - "unset-memory-requirements"

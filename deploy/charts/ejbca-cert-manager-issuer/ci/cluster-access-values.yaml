@@ -1,0 +1,7 @@
+# Cluster-wide access configuration — exercises ClusterRole/ClusterRoleBinding
+# paths for secret and configmap access, and enables secure metrics.
+secretConfig:
+  useClusterRoleForSecretAccess: true
+  useClusterRoleForConfigMapAccess: true
+metrics:
+  secure: true
