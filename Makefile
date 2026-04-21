@@ -218,7 +218,7 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 	@[ -f $(GOLANGCI_LINT) ] || { \
 	set -e; \
 	echo "Downloading golangci-lint $(GOLANGCI_LINT_VERSION)" ;\
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(LOCALBIN) $(GOLANGCI_LINT_VERSION) ;\
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(GOLANGCI_LINT_VERSION)/install.sh | sh -s -- -b $(LOCALBIN) $(GOLANGCI_LINT_VERSION) ;\
 	mv $(LOCALBIN)/golangci-lint $(GOLANGCI_LINT) ;\
 	}
 

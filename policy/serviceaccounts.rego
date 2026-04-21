@@ -1,5 +1,7 @@
 package main
 
+import rego.v1
+
 # ServiceAccounts are namespace-scoped resources. A ServiceAccount without a namespace will be
 # silently defaulted by the API server, which can result in permissions being
 # granted in an unintended namespace. Require every ServiceAccount to declare its
