@@ -20,6 +20,9 @@ metadata:
   labels:
     {{- include "ejbca-cert-manager-issuer.labels" . | nindent 4 }}
   name: {{ include "ejbca-cert-manager-issuer.name" . }}-configmap-reader-rolebinding
+  {{- if not .Values.secretConfig.useClusterRoleForConfigMapAccess }}  
+  namespace: {{ .Release.Namespace }}  
+  {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: {{ if .Values.secretConfig.useClusterRoleForConfigMapAccess }}ClusterRole{{ else }}Role{{ end }}
