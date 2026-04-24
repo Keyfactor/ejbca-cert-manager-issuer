@@ -50,7 +50,7 @@ make generate manifests
 
 ## Linting Helm manifests
 
-The Helm chart under `deploy/charts/ejbca-cert-manager-issuer` is linted with two tools on every PR:
+The Helm chart under `deploy/charts/ejbca-cert-manager-issuer` is linted with the following tool(s) on every PR:
 
 - **conftest** — runs custom Rego policies located in the [`policy/`](policy/) directory against the rendered manifests
 
