@@ -11,7 +11,7 @@ on:
 
 jobs:
   call-starter-workflow:
-    uses: keyfactor/actions/.github/workflows/starter.yml@3.2.0
+    uses: keyfactor/actions/.github/workflows/starter.yml@3.4.1
     secrets:
       token: ${{ secrets.V2BUILDTOKEN}}
       gpg_key: ${{ secrets.KF_GPG_PRIVATE_KEY }}
