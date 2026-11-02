@@ -60,10 +60,11 @@ jobs:
       - name: Run linters
         uses: golangci/golangci-lint-action@v7
         with:
-          version: v2.4.0
+          version: v2.12.2
 
       - name: Regenerate CRDs
         run: make generate manifests
+
       - name: Check for CRD drift
         run: |
           git diff --compact-summary --exit-code -- config/crd deploy/charts || \
