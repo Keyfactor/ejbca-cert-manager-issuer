@@ -33,6 +33,14 @@ linters:
       - third_party$
       - builtin$
       - examples$
+    rules:
+      # Exclude some linters from running on tests files.
+      - path: _test\.go
+        linters:
+          - gocyclo
+          - errcheck
+          - dupl
+          - gosec
 formatters:
   enable:
     - goimports
