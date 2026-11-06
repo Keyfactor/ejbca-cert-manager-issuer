@@ -1,3 +1,10 @@
+# v2.2.2
+## Chores
+- Updated base Go build image to Go 1.26
+## Security
+- Updated dependencies to address various security vulnerabilities:
+  - golang.org/x/crypto 0.47.0 -> 0.52.0
+
 # v2.2.1
 ## Fixes
 - Update Role and RoleBinding resources to have correct namespace when `secretConfig.useClusterRoleForConfigMapAccess` is set to `false` in Helm chart values.

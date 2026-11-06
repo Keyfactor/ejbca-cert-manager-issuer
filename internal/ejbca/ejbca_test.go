@@ -250,8 +250,8 @@ func TestNewSigner(t *testing.T) {
 				WithHostname("ejbca.example.org"),
 				WithCACerts(append(serverCertPem, caCertPem...)),
 				WithOAuth(&OAuth{
-					ClientID:     "fi3ElQUVoBBHyRNt4mpUxG9WY65AOCcJ",
-					ClientSecret: "1EXHdD7Ikmmv0OkBoJZZtzOG5iAzvwdqBVuvquf-QEvL6fLrEG_heJHphtEXVj9H",
+					ClientID:     "test-client-id",
+					ClientSecret: "test-client-secret",
 					Scopes:       "read:certificates,write:certificates",
 					Audience:     "https://ejbca.example.com",
 				}),
@@ -271,7 +271,7 @@ func TestNewSigner(t *testing.T) {
 				WithCACerts(append(serverCertPem, caCertPem...)),
 				WithOAuth(&OAuth{
 					TokenURL:     "https://dev.idp.com/oauth/token",
-					ClientSecret: "1EXHdD7Ikmmv0OkBoJZZtzOG5iAzvwdqBVuvquf-QEvL6fLrEG_heJHphtEXVj9H",
+					ClientSecret: "test-client-secret",
 					Scopes:       "read:certificates,write:certificates",
 					Audience:     "https://ejbca.example.com",
 				}),
@@ -291,7 +291,7 @@ func TestNewSigner(t *testing.T) {
 				WithCACerts(append(serverCertPem, caCertPem...)),
 				WithOAuth(&OAuth{
 					TokenURL: "https://dev.idp.com/oauth/token",
-					ClientID: "fi3ElQUVoBBHyRNt4mpUxG9WY65AOCcJ",
+					ClientID: "test-client-id",
 					Scopes:   "read:certificates,write:certificates",
 					Audience: "https://ejbca.example.com",
 				}),
