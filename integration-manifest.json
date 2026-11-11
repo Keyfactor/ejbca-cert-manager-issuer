@@ -6,7 +6,7 @@
     "link_github": false,
     "description": "cert-manager external issuer for EJBCA",
     "platform_matrix": "linux/arm64,linux/amd64,linux/s390x,linux/ppc64le",
-    "support_level": "kf-community",
+    "support_level": "kf-supported",
     "release_dir": "",
     "update_catalog": true
 }
