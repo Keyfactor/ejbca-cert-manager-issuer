@@ -1,31 +1,41 @@
+<h1 align="center" style="border-bottom: none">
+    EJBCA Issuer
+</h1>
+
+<p align="center">
+  <!-- Badges -->
+<img src="https://img.shields.io/badge/integration_status-production-3D1973?style=flat-square" alt="Integration Status: production" />
+<a href="https://github.com/Keyfactor/ejbca-cert-manager-issuer/releases"><img src="https://img.shields.io/github/v/release/Keyfactor/ejbca-cert-manager-issuer?style=flat-square" alt="Release" /></a>
+<img src="https://img.shields.io/github/issues/Keyfactor/ejbca-cert-manager-issuer?style=flat-square" alt="Issues" />
+<img src="https://img.shields.io/github/downloads/Keyfactor/ejbca-cert-manager-issuer/total?style=flat-square&label=downloads&color=28B905" alt="GitHub Downloads (all assets, all releases)" />
+</p>
+
+<p align="center">
+  <!-- TOC -->
+  <a href="#support">
+    <b>Support</b>
+  </a> 
+  ·
+  <a href="#license">
+    <b>License</b>
+  </a>
+  ·
+  <a href="https://github.com/topics/keyfactor-integration">
+    <b>Related Integrations</b>
+  </a>
+</p>
+
+## Support
+The EJBCA Issuer is supported by Keyfactor for Keyfactor customers. If you have a support issue, please open a support ticket with your Keyfactor representative. If you have a support issue, please open a support ticket via the Keyfactor Support Portal at https://support.keyfactor.com. 
+
+> To report a problem or suggest a new feature, use the **[Issues](../../issues)** tab. If you want to contribute actual bug fixes or proposed enhancements, use the **[Pull requests](../../pulls)** tab.
 
 
-# EJBCA Issuer
-
-![Integration Status: production](https://img.shields.io/badge/integration_status-production-3D1973?style=flat-square)
-<a href="https://github.com/keyfactor/ejbca-cert-manager-issuer/releases/latest"><img src="https://img.shields.io/github/v/release/keyfactor/ejbca-cert-manager-issuer?style=flat-square" alt="Latest Release"></a>
-<a href="https://ejbca.org"><img src="https://img.shields.io/badge/valid_for-ejbca_community-FF9371" alt="Valid for EJBCA Community"></a>
-<a href="https://www.keyfactor.com/products/ejbca-enterprise/"><img src="https://img.shields.io/badge/valid_for-ejbca_enterprise-5F61FF" alt="Valid for EJBCA Enterprise"></a>
-<a href="https://goreportcard.com/report/github.com/keyfactor/ejbca-cert-manager-issuer"><img src="https://goreportcard.com/badge/github.com/keyfactor/ejbca-cert-manager-issuer" alt="Go Report Card"></a>
-<a href="https://img.shields.io/badge/License-Apache%202.0-blue.svg"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License Apache 2.0"></a>
-
-
-
-## Overview
+# Overview
 
 The EJBCA Issuer for [cert-manager](https://cert-manager.io/) is a [CertificateRequest](https://cert-manager.io/docs/usage/certificaterequest/) controller that issues certificates using [EJBCA](https://ejbca.org/).
 
-
-
-## Community Support
-
-EJBCA Issuer is supported by Keyfactor for Keyfactor customers. If you have a support issue, please open a support ticket with your Keyfactor representative, or open a support ticket via the Keyfactor Support Portal at https://support.keyfactor.com.
-
-## Commercial Support
-
-Commercial support is available for [EJBCA Enterprise](https://www.keyfactor.com/products/ejbca-enterprise/).
-
-## Requirements
+# Requirements
 
 Before starting, ensure that the following requirements are met:
 
@@ -40,11 +50,17 @@ Before starting, ensure that the following requirements are met:
 - [Supported cert-manager release](https://cert-manager.io/docs/releases/) installed in your cluster. Please see the [cert-manager installation](https://cert-manager.io/docs/installation/) for details.
 - [Supported version of Helm](https://helm.sh/docs/topics/version_skew/) for your Kubernetes version
 
+# Badges
 
+<a href="https://github.com/keyfactor/ejbca-cert-manager-issuer/releases/latest"><img src="https://img.shields.io/github/v/release/keyfactor/ejbca-cert-manager-issuer?style=flat-square" alt="Latest Release"></a>
+<a href="https://ejbca.org"><img src="https://img.shields.io/badge/valid_for-ejbca_community-FF9371" alt="Valid for EJBCA Community"></a>
+<a href="https://www.keyfactor.com/products/ejbca-enterprise/"><img src="https://img.shields.io/badge/valid_for-ejbca_enterprise-5F61FF" alt="Valid for EJBCA Enterprise"></a>
+<a href="https://goreportcard.com/report/github.com/keyfactor/ejbca-cert-manager-issuer"><img src="https://goreportcard.com/badge/github.com/keyfactor/ejbca-cert-manager-issuer" alt="Go Report Card"></a>
+<a href="https://img.shields.io/badge/License-Apache%202.0-blue.svg"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License Apache 2.0"></a>
 
-## Getting Started
+# Getting Started
 
-### Configuring EJBCA
+## Configuring EJBCA
 
 EJBCA Issuer enrolls certificates by creating or updating an [End Entity](https://docs.keyfactor.com/ejbca/latest/end-entities) via the [PKCS10 Enroll REST request](https://docs.keyfactor.com/ejbca/latest/ejbca-rest-interface#id-(9.5)EJBCARESTInterface-Enrollpkcs10CertificatewithOneRequestOnly). Before using EJBCA Issuer, you must create or identify an End Entity Profile _and_ a Certificate Profile suitable for your usecase.
 
@@ -88,7 +104,7 @@ EJBCA Issuer enrolls certificates by creating or updating an [End Entity](https:
     |-----------------------------------------------------------|--------------------|
     | `/endentityprofilesrules/<your End Entity Profile Name>/` | Allow              |
 
-### Installing EJBCA Issuer
+## Installing EJBCA Issuer
 
 EJBCA Issuer is installed using a Helm chart. The chart is available in the [EJBCA cert-manager Helm repository](https://keyfactor.github.io/ejbca-cert-manager-issuer/).
 
@@ -116,10 +132,7 @@ EJBCA Issuer is installed using a Helm chart. The chart is available in the [EJB
 
 > The Helm chart installs the EJBCA Issuer CRDs by default. The CRDs can be installed manually with the `make install` target.
 
-
-
-
-## Authentication
+# Authentication
 
 EJBCA Issuer supports authentication to EJBCA using mTLS (client certificate & key) or the OAuth 2.0 "client credentials" token flow (sometimes called two-legged OAuth 2.0).
 
@@ -128,14 +141,14 @@ Credentials must be configured using a Kubernetes Secret. Where that Secret must
 - **ClusterIssuer**: The Secret must always exist in the same namespace as the issuer controller (`ejbca-issuer-system` by default), regardless of Helm configuration.
 - **Issuer**: By default, the Secret must also exist in the controller namespace (`ejbca-issuer-system`). If the Helm chart is installed with `--set "secretConfig.useClusterRoleForSecretAccess=true"`, the Secret can instead exist in the same namespace as the `Issuer` resource itself, enabling each team to manage their own credentials without access to the controller namespace.
 
-### mTLS
+## mTLS
 
 Create a K8s TLS secret containing the client certificate and key to authenticate with EJBCA:
 ```shell
 kubectl -n ejbca-issuer-system create secret tls ejbca-secret --cert=client.crt --key=client.key
 ```
 
-### OAuth
+## OAuth
 
 Create an Opaque secret containing the client ID and client secret to authenticate with EJBCA:
 
@@ -156,7 +169,7 @@ kubectl -n ejbca-issuer-system create secret generic ejbca-secret \
 
 > Audience and Scopes are optional
 
-## CA Bundle
+# CA Bundle
 
 If the EJBCA API is configured to use a self-signed certificate or with a certificate that isn't publicly trusted, the CA certificate **must be provided** as a Kubernetes Secret or ConfigMap for EJBCA Issuer to trust the API endpoint.
 
@@ -195,7 +208,7 @@ In the Issuer / ClusterIssuer specification, reference the created resource.
    caBundleKey: "ca.crt" # optional key name, pulls the last key in resource if not specified
 ```
 
-## Creating Issuer and ClusterIssuer resources
+# Creating Issuer and ClusterIssuer resources
 
 The `ejbca-issuer.keyfactor.com/v1alpha1` API version supports Issuer and ClusterIssuer resources. The Issuer resource is namespaced, while the ClusterIssuer resource is cluster-scoped.
 
@@ -287,7 +300,7 @@ For example, ClusterIssuer resources can be used to issue certificates for resou
     >
     > The `endEntityName` field in the Issuer and ClusterIssuer spec is described [here](docs/endentitynamecustomization.md)
 
-## Creating a Certificate
+# Creating a Certificate
 
 Once an Issuer or ClusterIssuer resource is created, they can be used to issue certificates using cert-manager. The two most important concepts are `Certificate` and `CertificateRequest` resources. 
 
@@ -332,7 +345,7 @@ spec:
 
 > All fields in EJBCA Issuer and ClusterIssuer `spec` can be overridden by applying Kubernetes Annotations to Certificates _and_ CertificateRequests. See [runtime customization for more](docs/annotations.md) 
 
-### Approving Certificate Requests
+## Approving Certificate Requests
 Unless the cert-manager internal approver automatically approves the request, newly created CertificateRequest resources
 will be in a `Pending` state until they are approved. CertificateRequest resources can be approved manually by using
 [cmctl](https://cert-manager.io/docs/reference/cmctl/#approve-and-deny-certificaterequests). The following is an example
@@ -350,8 +363,11 @@ kubectl get secret ejbca-certificate -n ejbca-issuer-system -o jsonpath='{.data.
 > To learn more about certificate approval and RBAC configuration, see the [cert-manager documentation](https://cert-manager.io/docs/concepts/certificaterequest/#approval).
 
 
-## License
-For license information, see [LICENSE](LICENSE). 
 
-## Related Projects
-See all [Keyfactor EJBCA GitHub projects](https://github.com/orgs/Keyfactor/repositories?q=ejbca). 
+## License
+
+Apache License 2.0, see [LICENSE](LICENSE).
+
+## Related Integrations
+
+See all [Keyfactor integrations](https://github.com/topics/keyfactor-integration).
