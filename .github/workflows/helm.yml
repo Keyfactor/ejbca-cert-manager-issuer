@@ -104,7 +104,7 @@ jobs:
       # https://github.com/helm/chart-releaser-action
       - name: Run chart-releaser
         if: ${{ github.event.inputs.dry_run != 'true' }}
-        uses: helm/chart-releaser-action@v1.5.0
+        uses: helm/chart-releaser-action@v1.7.0
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         with:
