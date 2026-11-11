@@ -19,10 +19,7 @@ The EJBCA Issuer for [cert-manager](https://cert-manager.io/) is a [CertificateR
 
 ## Community Support
 
-In the [Keyfactor Community](https://www.keyfactor.com/community/), we welcome contributions. Keyfactor Community software is open-source and community-supported, meaning that **no SLA** is applicable. Keyfactor will address issues as resources become available.
-
-* To report a problem or suggest a new feature, go to [Issues](../../issues).
-* If you want to contribute bug fixes or proposed enhancements, see the [Contributing Guidelines](CONTRIBUTING.md) and create a [Pull request](../../pulls).
+EJBCA Issuer is supported by Keyfactor for Keyfactor customers. If you have a support issue, please open a support ticket with your Keyfactor representative, or open a support ticket via the Keyfactor Support Portal at https://support.keyfactor.com.
 
 ## Commercial Support
 
